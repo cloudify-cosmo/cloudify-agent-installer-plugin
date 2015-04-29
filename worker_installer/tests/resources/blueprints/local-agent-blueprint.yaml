@@ -1,0 +1,12 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.2m1/types.yaml
+
+node_templates:
+
+  host:
+    type: cloudify.nodes.Compute
+    properties:
+      cloudify_agent:
+        local: true

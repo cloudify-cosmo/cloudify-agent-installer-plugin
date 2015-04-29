@@ -1,0 +1,29 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.2m1/types.yaml
+
+inputs:
+
+  image_name: {}
+  container_name: {}
+
+node_templates:
+
+  agent_host:
+    type: cloudify.nodes.Compute
+    properties:
+      cloudify_agent:
+        user: root
+        password: root
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: agent_installer.worker_installer.tests.test_tasks.create_docker
+          inputs:
+            image_name: { get_input: image_name }
+            container_name: { get_input: container_name }
+        delete:
+          implementation: agent_installer.worker_installer.tests.test_tasks.delete_docker
+          inputs:
+            container_name: { get_input: container_name }

@@ -1,0 +1,3 @@
+testtools
+mock
+https://github.com/cloudify-cosmo/cloudify-agent-packager/archive/agent-refactoring-project.zip
