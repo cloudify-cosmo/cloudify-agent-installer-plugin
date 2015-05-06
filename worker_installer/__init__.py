@@ -16,9 +16,7 @@
 from functools import wraps
 
 from cloudify import ctx
-from cloudify import context
 from cloudify.state import current_ctx
-from cloudify.utils import LocalCommandRunner
 
 from worker_installer.fabric_runner import FabricCommandRunner
 from worker_installer import configuration
@@ -30,26 +28,24 @@ def init_worker_installer(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
 
-        cloudify_agent = ctx.node.properties['cloudify_agent']
+        cloudify_agent = kwargs.get('cloudify_agent', {})
 
+        # set connection details
         configuration.prepare_connection(cloudify_agent)
-        configuration.prepare_agent(cloudify_agent)
 
-        local = (ctx.type == context.DEPLOYMENT)
-        if local:
-            runner = LocalCommandRunner(logger=ctx.logger)
-        else:
-            runner = FabricCommandRunner(
-                logger=ctx.logger,
-                host=cloudify_agent.get('host'),
-                user=cloudify_agent.get('user'),
-                key=cloudify_agent.get('key'),
-                port=cloudify_agent.get('port'),
-                password=cloudify_agent.get('password'))
-
-        agent_runner = AgentCommandRunner(runner, cloudify_agent['basedir'])
-
+        # now we can create the runner and attach it to ctx
+        runner = FabricCommandRunner(
+            logger=ctx.logger,
+            host=cloudify_agent.get('ip'),
+            user=cloudify_agent['user'],
+            key=cloudify_agent.get('key'),
+            port=cloudify_agent.get('port'),
+            password=cloudify_agent.get('password'),
+            local=cloudify_agent['local'])
         setattr(current_ctx.get_ctx(), 'runner', runner)
+
+        configuration.prepare_agent(cloudify_agent)
+        agent_runner = AgentCommandRunner(runner, cloudify_agent['agent_dir'])
         setattr(current_ctx.get_ctx(), 'agent', agent_runner)
 
         kwargs['cloudify_agent'] = cloudify_agent
@@ -73,18 +69,18 @@ class AgentCommandRunner(object):
 
     def __init__(self,
                  runner,
-                 cloudify_agent_base_dir):
+                 agent_dir):
         self._runner = runner
-        bin_path = '{0}/env/bin'.format(cloudify_agent_base_dir)
-        self._prefix = ['{0}/python {0}/cloudify-agent'.format(bin_path)]
+        bin_path = '{0}/env/bin'.format(agent_dir)
+        self._prefix = '{0}/python {0}/cfy-agent'.format(bin_path)
 
     def run(self, command, execution_env=None):
-        return self._runner.run('{1} {2}'
+        return self._runner.run('{0} {1}'
                                 .format(self._prefix,
                                         command),
                                 execution_env=execution_env,
                                 quiet=False)
 
     def sudo(self, command):
-        return self._runner.sudo('{1} {2}'.format(self._prefix, command),
+        return self._runner.sudo('{0} {1}'.format(self._prefix, command),
                                  quiet=False)

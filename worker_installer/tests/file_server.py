@@ -23,23 +23,24 @@ import socket
 import time
 from multiprocessing import Process
 
-from cloudify.utils import setup_default_logger
+from cloudify.utils import setup_logger
 from cloudify import exceptions
 
 PORT = 53229
 FNULL = open(os.devnull, 'w')
 
 
-logger = setup_default_logger('worker_installer.tests.file_server')
+logger = setup_logger('worker_installer.tests.file_server')
 
 
 class FileServer(object):
 
-    def __init__(self, root_path, use_subprocess=False, timeout=5):
+    def __init__(self, root_path, use_subprocess=False, timeout=5, port=PORT):
         self.root_path = root_path
         self.process = Process(target=self.start_impl)
         self.use_subprocess = use_subprocess
         self.timeout = timeout
+        self.port = port
 
     def start(self):
         logger.info('Starting file server')
@@ -83,15 +84,14 @@ class FileServer(object):
 
         class TCPServer(SocketServer.TCPServer):
             allow_reuse_address = True
-        httpd = TCPServer(('0.0.0.0', PORT),
+        httpd = TCPServer(('0.0.0.0', self.port),
                           SimpleHTTPServer.SimpleHTTPRequestHandler)
         httpd.serve_forever()
 
-    @staticmethod
-    def is_alive():
+    def is_alive(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.connect(('localhost', PORT))
+            s.connect(('localhost', self.port))
             s.close()
             return True
         except socket.error:

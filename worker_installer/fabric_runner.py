@@ -17,6 +17,8 @@ import os
 import json
 import logging
 import tempfile
+import platform
+import shutil
 
 import fabric.network
 from fabric import api as fabric_api
@@ -26,6 +28,7 @@ from fabric.context_managers import shell_env
 from fabric.contrib.files import exists
 
 from cloudify import exceptions
+from cloudify.utils import LocalCommandRunner
 from cloudify.utils import CommandExecutionResponse
 from cloudify.utils import setup_logger
 
@@ -56,14 +59,8 @@ class FabricCommandRunner(object):
                  key=None,
                  port=None,
                  password=None,
-                 validate_connection=True):
-
-        # connection details
-        self.port = port or DEFAULT_REMOTE_EXECUTION_PORT
-        self.password = password
-        self.user = user
-        self.host = host
-        self.key = key
+                 validate_connection=True,
+                 local=False):
 
         # logger
         self.logger = logger or setup_logger('fabric_runner')
@@ -71,14 +68,28 @@ class FabricCommandRunner(object):
         # silence paramiko
         logging.getLogger('paramiko.transport').setLevel(logging.WARNING)
 
-        # fabric environment
-        self.env = self._set_env()
+        if local:
+            self.local = True
+            self.local_runner = LocalCommandRunner(logger)
+        else:
+            self.local = False
+            # connection details
+            self.port = port or DEFAULT_REMOTE_EXECUTION_PORT
+            self.password = password
+            self.user = user
+            self.host = host
+            self.key = key
 
-        self._validate_config()
-        if validate_connection:
-            self.test_connectivity()
+            # fabric environment
+            self.env = self._set_env()
 
-    def _validate_config(self):
+            self._validate_ssh_config()
+            if validate_connection:
+                self.logger.debug('Validating connection...')
+                self.ping()
+                self.logger.debug('Connected successfully')
+
+    def _validate_ssh_config(self):
         if not self.host:
             raise exceptions.NonRecoverableError('Missing host')
         if not self.user:
@@ -104,22 +115,37 @@ class FabricCommandRunner(object):
         env.update(COMMON_ENV)
         return env
 
-    def test_connectivity(self):
-        self.logger.debug('Validating connection...')
-        self.ping()
-        self.logger.debug('Connected successfully')
-
     def run(self, command, execution_env=None, quiet=True):
 
         """
-        :param command: The command to execute.
+        Execute a command.
 
-        :rtype FabricCommandExecutionResponse.
-        :raise FabricCommandExecutionException.
+        :param command: The command to execute.
+        :type command: str
+        :param execution_env: environment variables to be applied before
+                              running the command
+        :type execution_env: dict
+        :param quiet: run the command silently
+        :type quiet: bool
+
+        :return: a response object containing information
+                 about the execution
+        :rtype: worker_installer.fabric_runner.FabricCommandExecutionResponse
+        :rtype: cloudify.utils.LocalCommandExecutionResponse
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
         """
 
         if execution_env is None:
             execution_env = {}
+
+        if self.local:
+            return self.local_runner.run(
+                command=command,
+                quiet=quiet,
+                execution_env=execution_env
+            )
+
         with shell_env(**execution_env):
             with settings(**self.env):
                 try:
@@ -145,10 +171,50 @@ class FabricCommandRunner(object):
                     )
 
     def sudo(self, command):
+
+        """
+        Execute a command under sudo.
+
+        :param command: The command to execute.
+        :type command: str
+
+        :return: a response object containing information
+                 about the execution
+        :rtype: worker_installer.fabric_runner.FabricCommandExecutionResponse
+        :rtype: cloudify.utils.LocalCommandExecutionResponse
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
+        """
+
+        if self.local:
+            return self.local_runner.sudo(command)
         return self.run('sudo {0}'.format(command),
                         quiet=False)
 
     def run_script(self, script, args=None, quiet=True):
+
+        """
+        Execute a script.
+
+        :param script: The path to the script to execute.
+        :type script: str
+        :param args: arguments to the script
+        :type args: bytearray
+        :param quiet: run the command silently
+        :type quiet: bool
+
+
+        :return: a response object containing information
+                 about the execution
+        :rtype: worker_installer.fabric_runner.FabricCommandExecutionResponse
+        :rtype: cloudify.utils.LocalCommandExecutionResponse
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
+        """
+
+        ########################################################
+        # local case is handled internally in the run function #
+        ########################################################
 
         if not args:
             args = []
@@ -166,27 +232,36 @@ class FabricCommandRunner(object):
         Test if the given path exists.
 
         :param path: The path to tests.
+        :type path: str
 
+        :return: true if the path exists, false otherwise
         :rtype boolean
         """
 
+        if self.local:
+            return os.path.exists(path)
         with settings(**self.env):
             return exists(path)
 
     def put_file(self, src, dst=None, sudo=False):
 
         """
-        Copies a file fro the local machine to the remote machine.
+        Copies a file from the src path to the dst path.
+        if case the runner is in a remote mode, the `dst` is a path on the
+        remote host, and fabric.put method will be used. in case the runner
+        is in local mode, both paths are local paths, and a regular copy is
+        executed.
 
         :param src: Path to a local file.
+        :type src: str
         :param dst: The remote path the file will copied to.
-        :param sudo:
+        :type dst: str
+        :param sudo: indicates that this operation
+                     will require sudo permissions
+        :type sudo: bool
 
-            indicates that this operation
-            will require sudo permissions
-
-        :rtype FabricCommandExecutionResponse.
-        :raise FabricCommandExecutionException.
+        :return: the destination path
+        :rtype: str
         """
 
         if not dst:
@@ -194,38 +269,86 @@ class FabricCommandRunner(object):
             tempdir = self.mkdtemp()
             dst = os.path.join(tempdir, basename)
 
-        with settings(**self.env):
-            with hide('running', 'warnings'):
-                r = fabric_api.put(src, dst, use_sudo=sudo)
-                if not r.succeeded:
-                    raise FabricCommandExecutionException(
-                        command='fabric_api.put',
-                        error='Failed uploading {0} to {1}'
-                        .format(src, dst),
-                        code=-1
-                    )
+        if self.local:
+            self.logger.debug('Copying {0} to {1}'.format(src, dst))
+            shutil.copy(src=src, dst=dst)
+        else:
+            with settings(**self.env):
+                with hide('running', 'warnings'):
+                    r = fabric_api.put(src, dst, use_sudo=sudo)
+                    if not r.succeeded:
+                        raise FabricCommandExecutionException(
+                            command='fabric_api.put',
+                            error='Failed uploading {0} to {1}'
+                            .format(src, dst),
+                            code=-1
+                        )
         return dst
 
     def get_file(self, src, dst=None):
+
+        """
+        Copies a file from the src path to the dst path.
+        if case the runner is in a remote mode, the `src` is a path on the
+        remote host, and fabric.get method will be used. in case the runner
+        is in local mode, both paths are local paths, and a regular copy is
+        executed.
+
+        :param src: Path to a local file.
+        :type src: str
+        :param dst: The remote path the file will copied to.
+        :type dst: str
+
+        :return: the destination path
+        :rtype: str
+        """
 
         if not dst:
             basename = os.path.basename(src)
             tempdir = tempfile.mkdtemp()
             dst = os.path.join(tempdir, basename)
 
-        with settings(**self.env):
-            with hide('running', 'warnings'):
-                response = fabric_api.get(src, dst)
-            if not response:
-                raise FabricCommandExecutionException(
-                    command='fabric_api.get',
-                    error='Failed downloading {0} to {1}'
-                    .format(src, dst),
-                    code=-1
-                )
+        if self.local:
+            shutil.copy(src=src, dst=dst)
+        else:
+            with settings(**self.env):
+                with hide('running', 'warnings'):
+                    response = fabric_api.get(src, dst)
+                if not response:
+                    raise FabricCommandExecutionException(
+                        command='fabric_api.get',
+                        error='Failed downloading {0} to {1}'
+                        .format(src, dst),
+                        code=-1
+                    )
         return dst
 
     def untar(self, archive, destination, strip=1):
+
+        """
+        Un-tars an archive. internally this will use the 'tar' command line,
+        so any archive supported by it is ok.
+
+        :param archive: path to the archive.
+        :type archive: str
+        :param destination: destination directory
+        :type destination: str
+        :param strip: the strip count.
+        :type strip: int
+
+        :return: a response object containing information
+                 about the execution
+        :rtype: worker_installer.fabric_runner.FabricCommandExecutionResponse
+        :rtype: cloudify.utils.LocalCommandExecutionResponse
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
+        """
+
+        ########################################################
+        # local case is handled internally in the run function #
+        # and in the exists function                           #
+        ########################################################
+
         if not self.exists(destination):
             self.run('mkdir -p {0}'.format(destination))
         return self.run('tar xzvf {0} --strip={1} -C {2}'
@@ -234,24 +357,69 @@ class FabricCommandRunner(object):
     def ping(self):
 
         """
-        Tests that the fabric connection is working.
+        Tests that the connection is working.
 
-        :rtype FabricCommandExecutionResponse.
-        :raise FabricCommandExecutionException.
+        :return: a response object containing information
+                 about the execution
+        :rtype: worker_installer.fabric_runner.FabricCommandExecutionResponse
+        :rtype: cloudify.utils.LocalCommandExecutionResponse
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
         """
+
+        ########################################################
+        # local case is handled internally in the run function #
+        ########################################################
 
         return self.run('echo')
 
     def mktemp(self, create=True, directory=False):
+
+        """
+        Creates a temporary path.
+
+        :param create: actually create the file or just construct the path
+        :type create: bool
+        :param directory: path should be a directory or not.
+        :type directory: bool
+
+        :return: the temporary path
+        :rtype: str
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
+        """
+
+        ########################################################
+        # local case is handled internally in the run function #
+        ########################################################
+
         flags = []
         if not create:
             flags.append('-u')
         if directory:
             flags.append('-d')
         return self.run('mktemp {0}'
-                        .format(' '.join(flags))).output
+                        .format(' '.join(flags))).output.rstrip()
 
     def mkdtemp(self, create=True):
+
+        """
+        Creates a temporary directory path.
+
+        :param create: actually create the file or just construct the path
+        :type create: bool
+
+        :return: the temporary path
+        :rtype: str
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
+        """
+
+        ########################################################
+        # local case is handled internally in the mktemp       #
+        # function                                             #
+        ########################################################
+
         return self.mktemp(create=create, directory=True)
 
     def download(self, url, output_path=None):
@@ -265,29 +433,33 @@ class FabricCommandRunner(object):
             3. if failed, raise a NonRecoverableError
 
         :param url: URL to the resource.
-        :param output_path:
+        :type url: str
+        :param output_path: Path where the resource will be downloaded to.
+                            If not specified, a temporary file will be used.
 
-            Path where the resource will be downloaded to.
-            If not specified, a temporary file will be used.
-
-        :rtype FabricCommandExecutionResponse.
-        :raise FabricCommandExecutionException.
-        :raise NonRecoverableError.
+        :return: the output path.
+        :rtype: str
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
         """
 
+        ########################################################
+        # local case is handled internally in the run function #
+        ########################################################
+
         if output_path is None:
-            output_path = self.run('mktemp').output
+            output_path = self.mktemp()
 
         try:
             self.logger.debug('Locating wget on the host machine')
             self.run('which wget')
             command = 'wget -T 30 {0} -O {1}'.format(url, output_path)
-        except FabricCommandExecutionException:
+        except CommandExecutionResponse:
             try:
                 self.logger.debug('Locating curl on the host machine')
                 self.run('which curl')
                 command = 'curl {0} -O {1}'.format(url, output_path)
-            except FabricCommandExecutionException:
+            except CommandExecutionResponse:
                 raise exceptions.NonRecoverableError(
                     'Cannot find neither wget nor curl'
                     .format(url))
@@ -305,11 +477,23 @@ class FabricCommandRunner(object):
         and the following closing brackets to retrieve the original output.
 
         :param imports_line: The imports needed for the command.
+        :type imports_line: str
         :param command: The python command to run.
+        :type command: str
+
+        :return: the string representation of the return value of
+                 the python command
+        :rtype: str
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
         """
 
         start = '###CLOUDIFYCOMMANDOPEN'
         end = 'CLOUDIFYCOMMANDCLOSE###'
+
+        ########################################################
+        # local case is handled internally in the run function #
+        ########################################################
 
         stdout = self.run('python -c "import sys; {0}; '
                           'sys.stdout.write(\'{1}{2}{3}\\n\''
@@ -326,11 +510,19 @@ class FabricCommandRunner(object):
     def machine_distribution(self):
 
         """
-        Retrieves the distribution information of the host using
-        platform.dist()
+        Retrieves the distribution information of the host.
+
+        :return: dictionary of the platform distribution as returned from
+        'platform.dist()'
+
+        :rtype: dict
+        :raise: worker_installer.fabric_runner.FabricCommandExecutionException
+        :raise: cloudify.exceptions.LocalCommandExecutionException
 
         """
 
+        if self.local:
+            return platform.dist()
         response = self.python(
             imports_line='import platform, json',
             command='json.dumps(platform.dist())'
@@ -358,7 +550,8 @@ class FabricCommandExecutionError(exceptions.CommandExecutionError):
     pass
 
 
-class FabricCommandExecutionException(exceptions.CommandExecutionException):
+class FabricCommandExecutionException(
+        exceptions.CommandExecutionException):
 
     """
     Indicates the command was executed but a failure occurred.

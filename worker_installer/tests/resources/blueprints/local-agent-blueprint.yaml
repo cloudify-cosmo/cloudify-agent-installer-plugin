@@ -1,12 +1,75 @@
-tosca_definitions_version: cloudify_dsl_1_0
+tosca_definitions_version: cloudify_dsl_1_1
 
 imports:
-    - http://www.getcloudify.org/spec/cloudify/3.2m1/types.yaml
+    - http://www.getcloudify.org/spec/cloudify/3.2rc1/types.yaml
+
+inputs:
+
+  user:
+    description: The user the agent should run under.
+  resource_base:
+    description: |
+      Path to a file server resource base directory. The agent
+      package will be placed under this directory so that it is
+      rechable by http
+
+node_types:
+
+  nodes.CloudifyAgentPackage:
+    derived_from: cloudify.nodes.Root
+    properties:
+      resource_base:
+        description: Path to a file server resource base directory
+      agent_packager_source:
+        description: URL to the agent packager who will package the agent.
+      virtualenv_directory:
+        description: Path to a virtualenv the packager will run from.
+      cloudify_agent_module:
+        description: URL the agent module source code.
+      requirements_file:
+        description: |
+          URL to a requirements file to be installed before
+          installing the cloudify agent module
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/install-dependencies.sh
+        start: scripts/create_package.py
 
 node_templates:
 
   host:
     type: cloudify.nodes.Compute
+    interfaces:
+      cloudify.interfaces.worker_installer:
+        install:
+          inputs:
+            cloudify_agent:
+              package_url: { get_attribute: [ agent_package, package_url ] }
+              ip: 127.0.0.1
+              manager_ip: 127.0.0.1
+              user: { get_input: user }
+              local: true
+              basedir: /tmp
+              min_workers: 0
+              max_workers: 5
+
+    relationships:
+      - target: agent_package
+        type: cloudify.relationships.depends_on
+
+  agent_packager_host:
+    type: cloudify.nodes.Compute
     properties:
-      cloudify_agent:
-        local: true
+      install_agent: false
+
+  agent_package:
+    type: nodes.CloudifyAgentPackage
+    properties:
+      resource_base: { get_input: resource_base }
+      agent_packager_source: https://github.com/cloudify-cosmo/cloudify-agent-packager/archive/agent-refactoring-project.zip
+      virtualenv_directory: /tmp/cloudify-agent-packager-env
+      cloudify_agent_module: https://github.com/cloudify-cosmo/cloudify-agent/archive/CFY-2649-cloudify-agent-impl.zip
+      requirements_file: https://raw.githubusercontent.com/cloudify-cosmo/cloudify-agent/CFY-2649-cloudify-agent-impl/dev-requirements.txt
+    relationships:
+      - target: agent_packager_host
+        type: cloudify.relationships.contained_in

@@ -14,6 +14,7 @@
 #  * limitations under the License.
 
 import tempfile
+import os
 
 
 def env_to_file(env_variables, destination_path=None):
@@ -33,11 +34,24 @@ def env_to_file(env_variables, destination_path=None):
     """
 
     if not destination_path:
-        destination_path = tempfile.mkstemp(suffix='env')
+        destination_path = tempfile.mkstemp(suffix='env')[1]
 
-    with open(destination_path, 'a') as f:
+    with open(destination_path, 'w') as f:
         f.write('#!/bin/bash')
+        f.write(os.linesep)
+        f.write(os.linesep)
         for key, value in env_variables.iteritems():
             f.write('export {0}={1}'.format(key, value))
+            f.write(os.linesep)
+        f.write(os.linesep)
 
     return destination_path
+
+
+def stringify_values(dictionary):
+
+    for key, value in dictionary.iteritems():
+        if isinstance(value, dict):
+            stringify_values(value)
+        else:
+            dictionary[key] = str(value)

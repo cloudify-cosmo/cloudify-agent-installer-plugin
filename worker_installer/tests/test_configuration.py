@@ -229,6 +229,7 @@ class TestConfiguration(testtools.TestCase):
             'max_workers': 5,
             'user': user,
             'min_workers': 0,
-            'package_url': 'localhost/packages/agents/distro-distro_codename-agent.tar.gz'
+            'package_url': 'localhost/packages/agents/'
+                           'distro-distro_codename-agent.tar.gz'
         }
         self.assertEqual(expected, cloudify_agent)

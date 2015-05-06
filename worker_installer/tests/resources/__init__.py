@@ -1,5 +1,5 @@
 #########
-# Copyright (c) 2013 GigaSpaces Technologies Ltd. All rights reserved
+# Copyright (c) 2014 GigaSpaces Technologies Ltd. All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,9 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-from setuptools import setup
+import os
 
-setup(
-    name='cloudify-agent-installer-plugin',
-    version='1.2',
-    author='Gigaspaces',
-    author_email='cloudify@gigaspaces.com',
-    packages=['worker_installer'],
-    license='LICENSE',
-    description='Plugin for installing a Cloudify agent on a machine',
-    install_requires=[
-        'cloudify-plugins-common==3.2rc1',
-        'fabric==1.8.3',
-        'jinja2==2.7.2'
-    ]
-)
+
+def get_resource(resource):
+    resources_dir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(resources_dir, resource)

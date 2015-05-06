@@ -1,2 +1,0 @@
-cloudify_agent_module: https://github.com/nir0s/cloudify-agent/archive/cloudify-agent-cli.zip
-requirements_file: https://raw.githubusercontent.com/nir0s/cloudify-agent/cloudify-agent-cli/dev-requirements.txt

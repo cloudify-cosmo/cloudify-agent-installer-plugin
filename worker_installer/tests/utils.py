@@ -50,16 +50,7 @@ def destroy_docker(container_name):
     runner.run('docker rm {0}'.format(container_name))
 
 
-def create_agent_package(image_name):
-
-    host_details = launch_docker(image_name, 'agent_packager_machine')
-    runner = FabricCommandRunner(
-        host=host_details['host'],
-        user=host_details['user'],
-        password=host_details['password']
-    )
-
-    runner.logger.info('Creating agent package...')
+def create_agent_package():
 
     script = os.path.join(
         os.path.dirname(tests.__file__),
@@ -71,13 +62,10 @@ def create_agent_package(image_name):
         'resources',
         'package.yaml'
     )
-    config_path = runner.put_file(src=config)
-    runner.run_script(script, args=[config_path], quiet=False)
-    agent_package_path = runner.get_file('/tmp/cloudify-agent-packager-work'
-                                         '/Ubuntu-trusty-agent.tar.gz')
-    destroy_docker('agent_packager_machine')
-    runner.logger.info('Agent package created at: {0}'
-                       .format(agent_package_path))
+
+
+
+
     return agent_package_path
 
 

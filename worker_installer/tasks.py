@@ -13,18 +13,25 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
+import os
+
 from cloudify.decorators import operation
 from cloudify import ctx
 
 from worker_installer import init_worker_installer
 from worker_installer import env
+from worker_installer import utils
 
 
 @operation
 @init_worker_installer
 def install(cloudify_agent, **_):
 
-    def _create_env():
+    def _create_agent_env_path():
+        local_env_path = utils.env_to_file(cloudify_agent['env'])
+        return ctx.runner.put_file(local_env_path)
+
+    def _create_execution_env(_agent_env_path):
 
         return {
 
@@ -32,8 +39,6 @@ def install(cloudify_agent, **_):
             env.CLOUDIFY_MANAGER_IP: cloudify_agent['manager_ip'],
             env.CLOUDIFY_DAEMON_QUEUE: cloudify_agent['queue'],
             env.CLOUDIFY_DAEMON_NAME: cloudify_agent['name'],
-            env.CLOUDIFY_AGENT_HOST: cloudify_agent['host'],
-            env.CLOUDIFY_DAEMON_WORKDIR: cloudify_agent['workdir'],
 
             # these are variables that have default values that will be set
             # by the agent on the remote host if not set here
@@ -48,20 +53,26 @@ def install(cloudify_agent, **_):
             env.CLOUDIFY_DAEMON_MIN_WORKERS: cloudify_agent.get(
                 'min_workers'),
             env.CLOUDIFY_DAEMON_PROCESS_MANAGEMENT: cloudify_agent.get(
-                'process_management')
+                'process_management'),
+
+            env.CLOUDIFY_DAEMON_EXTRA_ENV: _agent_env_path
         }
+
+    ctx.logger.info('Cloudify Agent : {0}'.format(cloudify_agent))
+    agent_env_path = _create_agent_env_path()
+    execution_env = _create_execution_env(agent_env_path)
+    utils.stringify_values(execution_env)
 
     ctx.logger.info('Downloading Agent package from {0}'
                     .format(cloudify_agent['package_url']))
     package_path = ctx.runner.download(url=cloudify_agent['package_url'])
     ctx.logger.info('Extracting Agent package...')
     ctx.runner.untar(archive=package_path,
-                     destination=cloudify_agent['basedir'])
-
-    execution_env = _create_env()
+                     destination=cloudify_agent['agent_dir'])
 
     ctx.logger.info('Creating Agent...')
     ctx.agent.run('daemon create', execution_env=execution_env)
+    _set_runtime_properties(cloudify_agent)
 
 
 @operation
@@ -90,3 +101,7 @@ def stop(cloudify_agent, **_):
 def uninstall(cloudify_agent, **_):
     ctx.logger.info('Deleting Agent...')
     ctx.agent.sudo('delete --name={0}'.format(cloudify_agent['name']))
+
+
+def _set_runtime_properties(cloudify_agent):
+    ctx.instance.runtime_properties['cloudify_agent'] = cloudify_agent

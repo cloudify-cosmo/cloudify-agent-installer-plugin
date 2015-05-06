@@ -13,92 +13,99 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import testtools
-import socket
+import unittest
 import os
 import tempfile
+import logging
 
-from cloudify.utils import setup_default_logger
+
+from cloudify.utils import setup_logger
 from cloudify import exceptions
 
 from worker_installer.fabric_runner import FabricCommandRunner
-from worker_installer.fabric_runner import FabricCommandExecutionException
 from worker_installer.tests import utils
 from worker_installer.tests.file_server import FileServer
 from worker_installer import tests
 from worker_installer.tests.file_server import PORT
 
 
-class TestDefaults(testtools.TestCase):
+class TestDefaults(unittest.TestCase):
 
     def test_default_port(self):
-        runner = FabricCommandRunner(validate_connection=False,
-                              user='user',
-                              host='host',
-                              password='password')
+        runner = FabricCommandRunner(
+            validate_connection=False,
+            user='user',
+            host='host',
+            password='password')
         self.assertTrue(runner.port, 22)
 
 
-class TestValidations(testtools.TestCase):
+class TestValidations(unittest.TestCase):
 
     def test_no_host(self):
         try:
-            FabricCommandRunner(validate_connection=False,
-                         user='user',
-                         password='password')
+            FabricCommandRunner(
+                validate_connection=False,
+                user='user',
+                password='password')
             self.fail('Expected error due to missing host')
         except exceptions.NonRecoverableError as e:
             self.assertIn('Missing host', str(e))
 
     def test_no_user(self):
         try:
-            FabricCommandRunner(validate_connection=False,
-                         host='host',
-                         password='password')
+            FabricCommandRunner(
+                validate_connection=False,
+                host='host',
+                password='password')
             self.fail('Expected error due to missing user')
         except exceptions.NonRecoverableError as e:
             self.assertIn('Missing user', str(e))
 
     def test_key_and_password(self):
         try:
-            FabricCommandRunner(validate_connection=False,
-                         host='host',
-                         user='user',
-                         password='password',
-                         key='key')
+            FabricCommandRunner(
+                validate_connection=False,
+                host='host',
+                user='user',
+                password='password',
+                key='key')
             self.fail('Expected error due to specifying key and password')
         except exceptions.NonRecoverableError as e:
             self.assertIn('Cannot specify both key and password', str(e))
 
     def test_no_key_no_password(self):
         try:
-            FabricCommandRunner(validate_connection=False,
-                         host='host',
-                         user='password')
+            FabricCommandRunner(
+                validate_connection=False,
+                host='host',
+                user='password')
             self.fail('Expected error due to not specifying key and password')
         except exceptions.NonRecoverableError as e:
             self.assertIn('Must specify either key or password', str(e))
 
 
-class FabricRunnerTest(testtools.TestCase):
+############################################################################
+# Note that this test the fabric runner in local mode only
+# tests for the remote mode cannot be placed here because we cannot run a
+# VM/container in travis. so remote tests are executed as system tests from
+# the internal build system.
+############################################################################
 
-    """
-    Base class for fabric runner tests. Tests that are common for
-    both remote fabric runner and local fabric runner should be placed
-    here.
-    """
+class LocalFabricRunnerTest(unittest.TestCase):
 
     fs = None
+    runner = None
 
     @classmethod
     def setUpClass(cls):
-        super(FabricRunnerTest, cls).setUpClass()
-        cls.logger = setup_default_logger(cls.__name__)
-        details = utils.launch_docker(image_name='rastasheep/ubuntu-sshd',
-                                      container_name='test_fabric_runner')
-        cls.runner = FabricCommandRunner(logger=cls.logger,
-                                  validate_connection=False,
-                                  **details)
+        super(LocalFabricRunnerTest, cls).setUpClass()
+        cls.logger = setup_logger(cls.__name__)
+        cls.logger.setLevel(logging.DEBUG)
+        cls.runner = FabricCommandRunner(
+            logger=cls.logger,
+            validate_connection=False,
+            local=True)
         resources = os.path.join(
             os.path.dirname(tests.__file__),
             'resources'
@@ -108,26 +115,21 @@ class FabricRunnerTest(testtools.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(FabricRunnerTest, cls).tearDownClass()
-        utils.destroy_docker('test_fabric_runner')
+        super(LocalFabricRunnerTest, cls).tearDownClass()
         cls.fs.stop()
 
     def test_ping(self):
         self.runner.ping()
 
-    def test_run_bad_command(self):
-        try:
-            self.runner.run('bad')
-        except FabricCommandExecutionException as e:
-            self.assertIn('not found', e.error)
-
-    def test_run_good_command(self):
+    def test_run_command(self):
         response = self.runner.run('echo hello')
         self.assertIn('hello', response.output)
 
     def test_run_script(self):
 
         script = tempfile.mktemp()
+        self.logger.info('Created temporary file for script: {0}'
+                         .format(script))
 
         with open(script, 'w') as f:
             f.write('#!/bin/bash')
@@ -136,17 +138,17 @@ class FabricRunnerTest(testtools.TestCase):
             f.write(os.linesep)
 
         response = self.runner.run_script(script=script)
-        self.assertEqual('hello', response.output)
+        self.assertEqual('hello', response.output.rstrip())
 
     def test_exists(self):
-        response = self.runner.exists('~/.bashrc')
+        response = self.runner.exists(tempfile.gettempdir())
         self.assertTrue(response)
 
     def test_get_non_existing_file(self):
         try:
             self.runner.get_file(src='non-exiting')
-        except FabricCommandExecutionException as e:
-            self.assertIn('not found', e.error)
+        except IOError:
+            pass
 
     def test_put_get_file(self):
 
@@ -162,16 +164,21 @@ class FabricRunnerTest(testtools.TestCase):
             self.assertEqual('test_put_get_file',
                              f.read())
 
-    def test_download(self):
+    def test_run_command_with_env(self):
+        response = self.runner.run('env',
+                                   execution_env={'TEST_KEY': 'TEST_VALUE'})
+        self.assertIn('TEST_KEY=TEST_VALUE', response.output)
 
-        ip = utils.get_ip_address('wlan0')
+
+    def test_download(self):
         output_path = self.runner.download(
-            url='http://{0}:{1}/archive.tar.gz'.format(ip, PORT))
+            url='http://localhost:{0}/archive.tar.gz'.format(PORT))
+        self.logger.info('Downloaded archive to path: {0}'.format(output_path))
         self.assertTrue(self.runner.exists(path=output_path))
 
     def test_untar(self):
         temp_folder = self.runner.mkdtemp()
-        ip = utils.get_ip_address('wlan0')
+        ip = utils.get_ip_address('eth0')
         output_path = self.runner.download(
             url='http://{0}:{1}/archive.tar.gz'.format(ip, PORT))
         self.runner.untar(archive=output_path, destination=temp_folder)

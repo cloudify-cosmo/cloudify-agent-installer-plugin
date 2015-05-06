@@ -14,11 +14,13 @@
 #  * limitations under the License.
 
 import os
+import getpass
 from functools import wraps
 
 from cloudify import exceptions
 from cloudify import ctx
 from cloudify import utils
+from cloudify import context
 
 
 def cloudify_agent_property(agent_property=None,
@@ -36,10 +38,17 @@ def cloudify_agent_property(agent_property=None,
             invocation = args[0]
             node_properties = ctx.node.properties['cloudify_agent']
             agent_context = ctx.bootstrap_context.cloudify_agent
+            runtime_properties = ctx.instance.runtime_properties.get(
+                'cloudify_agent', {})
 
             # if the property was given in the invocation, use it.
             if agent_property in invocation:
                 return
+
+            # if the property is inside a runtime property, use it.
+            if agent_property in runtime_properties:
+                invocation[agent_property] = runtime_properties[
+                    agent_property]
 
             # if the property is declared on the node, use it
             if agent_property in node_properties:
@@ -52,7 +61,6 @@ def cloudify_agent_property(agent_property=None,
                                                      context_attribute)
                 return
 
-            # apply the function, perhaps it will set this property
             value = function(*args, **kwargs)
             if value is not None:
                 invocation[agent_property] = value
@@ -64,12 +72,16 @@ def cloudify_agent_property(agent_property=None,
                 properties_path = '{0}.properties.cloudify_agent'.format(
                     ctx.node.name
                 )
+                runtime_properties_path = \
+                    '{0}.runtime_properties.cloudify_agent'\
+                    .format(ctx.instance.id)
                 context_path = 'bootstrap_context.cloudify_agent'
                 raise exceptions.NonRecoverableError(
                     '{0} was not found in any of '
-                    'the following: 1. {1}; 2. {2}; 3. {3}'
+                    'the following: 1. {1}; 2. {2}; 3. {3}; 4. {4}'
                     .format(agent_property,
                             inputs_path,
+                            runtime_properties_path,
                             properties_path,
                             context_path)
                 )
@@ -84,14 +96,13 @@ def prepare_connection(cloudify_agent):
     _set_key(cloudify_agent)
     _set_password(cloudify_agent)
     _set_port(cloudify_agent)
-    _set_host(cloudify_agent)
+    _set_ip(cloudify_agent)
+    _set_local(cloudify_agent)
 
 
 def prepare_agent(cloudify_agent):
     _set_name(cloudify_agent)
-    _set_home_dir(cloudify_agent)
     _set_basedir(cloudify_agent)
-    _set_workdir(cloudify_agent)
     _set_min_workers(cloudify_agent)
     _set_max_workers(cloudify_agent)
     _set_queue(cloudify_agent)
@@ -99,6 +110,9 @@ def prepare_agent(cloudify_agent):
     _set_distro_codename(cloudify_agent)
     _set_package_url(cloudify_agent)
     _set_manager_ip(cloudify_agent)
+    _set_env(cloudify_agent)
+    _set_agent_dir(cloudify_agent)
+    _set_process_management(cloudify_agent)
 
 
 @cloudify_agent_property(agent_property='port',
@@ -109,7 +123,7 @@ def _set_port(_):
 
 @cloudify_agent_property('user')
 def _set_user(_):
-    pass
+    raise getpass.getuser()
 
 
 @cloudify_agent_property(agent_property='key',
@@ -127,12 +141,12 @@ def _set_password(_):
 
 @cloudify_agent_property('min_workers')
 def _set_min_workers(_):
-    pass
+    return 0
 
 
 @cloudify_agent_property('max_workers')
 def _set_max_workers(_):
-    pass
+    return 5
 
 
 @cloudify_agent_property('distro')
@@ -156,8 +170,8 @@ def _set_package_url(cloudify_agent):
     )
 
 
-@cloudify_agent_property('host')
-def _set_host(_):
+@cloudify_agent_property('ip')
+def _set_ip(_):
     ip = None
     if ctx.node.properties.get('ip'):
         ip = ctx.node.properties['ip']
@@ -168,18 +182,23 @@ def _set_host(_):
 
 @cloudify_agent_property('name')
 def _set_name(cloudify_agent):
-    workflows_worker = cloudify_agent.get('workflows_worker', False)
-    suffix = '_workflows' if workflows_worker else ''
-    name = '{0}{1}'.format(ctx.deployment.id, suffix)
+    if ctx.type == context.DEPLOYMENT:
+        workflows_worker = cloudify_agent.get('workflows_worker', False)
+        suffix = '_workflows' if workflows_worker else ''
+        name = '{0}{1}'.format(ctx.deployment.id, suffix)
+    else:
+        name = ctx.instance.id
     return name
 
 
 @cloudify_agent_property('basedir')
 def _set_basedir(cloudify_agent):
-    return os.path.join(
-        cloudify_agent['home_dir'],
-        cloudify_agent['name']
-    )
+
+    # the default will be the home directory
+    return ctx.runner.python(
+        imports_line='import pwd',
+        command='pwd.getpwnam(\'{0}\').pw_dir'
+        .format(cloudify_agent['user']))
 
 
 @cloudify_agent_property('queue')
@@ -187,22 +206,34 @@ def _set_queue(cloudify_agent):
     return cloudify_agent['name']
 
 
-@cloudify_agent_property('home_dir')
-def _set_home_dir(cloudify_agent):
-    return ctx.runner.python(
-        imports_line='import pwd',
-        command='pwd.getpwnam(\'{0}\').pw_dir'
-        .format(cloudify_agent['user']))
-
-
-@cloudify_agent_property('workdir')
-def _set_workdir(cloudify_agent):
-    return os.path.join(
-        cloudify_agent['basedir'],
-        'work'
-    )
-
-
 @cloudify_agent_property('manager_ip')
 def _set_manager_ip(_):
     return utils.get_manager_ip()
+
+
+@cloudify_agent_property('env')
+def _set_env(_):
+    return {}
+
+
+@cloudify_agent_property('local')
+def _set_local():
+    return ctx.type == context.DEPLOYMENT
+
+
+########################################################################
+# This is not a cloudify_agent_property because the name of
+# the agent should be tightly connected to the directory, therefore
+# this is not configurable to avoid misuse. both 'basedir' and 'name'
+# are configurable so a user will have full control over the directory
+########################################################################
+def _set_agent_dir(cloudify_agent):
+    cloudify_agent['agent_dir'] = os.path.join(
+        cloudify_agent['basedir'],
+        cloudify_agent['name']
+    )
+
+@cloudify_agent_property('process_management')
+def _set_process_management(_):
+    return 'init.d'
+
