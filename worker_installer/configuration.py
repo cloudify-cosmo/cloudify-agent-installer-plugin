@@ -17,7 +17,7 @@ import os
 import getpass
 from functools import wraps
 
-from cloudify import exceptions
+from cloudify.exceptions import NonRecoverableError
 from cloudify import ctx
 from cloudify import utils
 from cloudify import context
@@ -80,7 +80,7 @@ def cloudify_agent_property(agent_property=None,
                     '{0}.runtime_properties.cloudify_agent'\
                     .format(ctx.instance.id)
                 context_path = 'bootstrap_context.cloudify_agent'
-                raise exceptions.NonRecoverableError(
+                raise NonRecoverableError(
                     '{0} was not found in any of '
                     'the following: 1. {1}; 2. {2}; 3. {3}; 4. {4}'
                     .format(agent_property,
@@ -184,6 +184,16 @@ def _set_package_url(cloudify_agent):
         cloudify_agent['distro'],
         cloudify_agent['distro_codename']
     )
+
+
+@cloudify_agent_property('source_url', mandatory=False)
+def _set_source_url(_):
+    pass
+
+
+@cloudify_agent_property('requirements', mandatory=False)
+def _set_requirements(_):
+    pass
 
 
 @cloudify_agent_property('ip')

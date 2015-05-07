@@ -1,3 +1,4 @@
 testtools
 mock
 https://github.com/cloudify-cosmo/cloudify-agent-packager/archive/agent-refactoring-project.zip
+https://github.com/cloudify-cosmo/cloudify-dsl-parser/archive/master.zip
