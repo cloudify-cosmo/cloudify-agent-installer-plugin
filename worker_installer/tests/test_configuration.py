@@ -19,6 +19,7 @@ import os
 from mock import patch, MagicMock
 
 from cloudify.context import BootstrapContext
+from cloudify.mocks import MockCloudifyContext
 
 from worker_installer.configuration import cloudify_agent_property
 from worker_installer.configuration import prepare_agent
@@ -28,23 +29,25 @@ from worker_installer.configuration import prepare_connection
 def mock_context(properties=None,
                  runtime_properties=None,
                  agent_context=None):
+
     if not properties:
         properties = {}
     if 'cloudify_agent' not in properties:
         properties['cloudify_agent'] = {}
     if not runtime_properties:
         runtime_properties = {}
-    context = MagicMock()
-    context.task_name = 'cloudify.interfaces.lifecycle.start'
-    context.node.properties = properties
-    context.node.name = 'test_node'
-    context.instance.runtime_properties = runtime_properties
-    context.deployment.id = 'deployment_id'
-    if agent_context is None:
-        context.bootstrap_context.cloudify_agent = None
-    else:
-        context.bootstrap_context.cloudify_agent = \
-            BootstrapContext.CloudifyAgent(agent_context)
+
+    context = MockCloudifyContext(
+        node_id='test_node',
+        node_name='test_node',
+        blueprint_id='test_blueprint',
+        deployment_id='test_deployment',
+        execution_id='test_execution',
+        properties=properties,
+        runtime_properties=runtime_properties,
+        bootstrap_context=BootstrapContext(
+            bootstrap_context={'cloudify_agent': agent_context})
+    )
     setattr(context, 'runner', MagicMock())
     return context
 
@@ -170,7 +173,8 @@ class TestConfiguration(testtools.TestCase):
             'user': 'test_user',
             'key': 'key',
             'port': 22,
-            'host': '127.0.0.1'
+            'ip': '127.0.0.1',
+            'local': False
         }
         self.assertEqual(expected, cloudify_agent)
 
@@ -192,7 +196,8 @@ class TestConfiguration(testtools.TestCase):
             'user': 'test_user',
             'key': 'key',
             'port': 22,
-            'host': '127.0.0.1'
+            'ip': '127.0.0.1',
+            'local': False
         }
         self.assertEqual(expected, cloudify_agent)
 
@@ -216,14 +221,13 @@ class TestConfiguration(testtools.TestCase):
         cloudify_agent = {'user': user}
         prepare_agent(cloudify_agent)
         expected = {
+            'agent_dir': 'basedir/test_node',
             'distro': 'distro',
             'distro_codename': 'distro_codename',
             'basedir': 'basedir',
-            'workdir': 'workdir',
-            'name': 'deployment_id',
+            'name': 'test_node',
             'manager_ip': 'localhost',
-            'home_dir': 'homedir',
-            'queue': 'deployment_id',
+            'queue': 'test_node',
             'max_workers': 5,
             'user': user,
             'min_workers': 0,

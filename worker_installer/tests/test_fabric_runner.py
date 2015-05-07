@@ -23,7 +23,6 @@ from cloudify.utils import setup_logger
 from cloudify import exceptions
 
 from worker_installer.fabric_runner import FabricCommandRunner
-from worker_installer.tests import utils
 from worker_installer.tests.file_server import FileServer
 from worker_installer import tests
 from worker_installer.tests.file_server import PORT
@@ -177,9 +176,8 @@ class LocalFabricRunnerTest(unittest.TestCase):
 
     def test_untar(self):
         temp_folder = self.runner.mkdtemp()
-        ip = utils.get_ip_address('eth0')
         output_path = self.runner.download(
-            url='http://{0}:{1}/archive.tar.gz'.format(ip, PORT))
+            url='http://localhost:{0}/archive.tar.gz'.format(PORT))
         self.runner.untar(archive=output_path, destination=temp_folder)
         self.assertTrue(self.runner.exists(
             os.path.join(temp_folder, 'dsl_parser'))

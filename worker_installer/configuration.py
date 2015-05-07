@@ -136,7 +136,7 @@ def _set_port(_):
 
 @cloudify_agent_property('user', mandatory=False)
 def _set_user(_):
-    raise getpass.getuser()
+    return getpass.getuser()
 
 
 @cloudify_agent_property(
@@ -195,7 +195,6 @@ def _set_ip(_):
         ip = ctx.instance.runtime_properties['ip']
     return ip
 
-
 @cloudify_agent_property('name')
 def _set_name(cloudify_agent):
     if ctx.type == context.DEPLOYMENT:
@@ -227,6 +226,11 @@ def _set_manager_ip(_):
     return utils.get_manager_ip()
 
 
+@cloudify_agent_property('env', mandatory=False)
+def _set_env(_):
+    pass
+
+
 ########################################################################
 # These are properties that are passed directly to the cfy-agent
 # command line. they have default on the agent. That is why we don't
@@ -235,22 +239,17 @@ def _set_manager_ip(_):
 ########################################################################
 
 
-@cloudify_agent_property('process_management')
+@cloudify_agent_property('process_management', mandatory=False)
 def _set_process_management(_):
     pass
 
 
-@cloudify_agent_property('env')
-def _set_env(_):
-    pass
-
-
-@cloudify_agent_property('min_workers')
+@cloudify_agent_property('min_workers', mandatory=False)
 def _set_min_workers(_):
     pass
 
 
-@cloudify_agent_property('max_workers')
+@cloudify_agent_property('max_workers', mandatory=False)
 def _set_max_workers(_):
     pass
 

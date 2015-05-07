@@ -65,7 +65,7 @@ def stringify_values(dictionary):
 
     for key, value in dict_copy.iteritems():
         if isinstance(value, dict):
-            stringify_values(value)
+            dict_copy[key] = stringify_values(value)
         else:
             dict_copy[key] = str(value)
     return dict_copy

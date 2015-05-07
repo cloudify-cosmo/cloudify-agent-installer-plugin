@@ -26,7 +26,7 @@ from worker_installer import utils
 def install(cloudify_agent, **_):
 
     def _create_agent_env_path():
-        local_env_path = utils.env_to_file(cloudify_agent['env'])
+        local_env_path = utils.env_to_file(cloudify_agent.get('env', {}))
         return ctx.runner.put_file(local_env_path)
 
     def _create_execution_env(_agent_env_path):

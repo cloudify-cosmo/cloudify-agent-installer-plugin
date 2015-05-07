@@ -46,7 +46,7 @@ class WorkerInstallerLocalTest(unittest.TestCase):
     def setUp(self):
         self.original_dir = os.getcwd()
         tempdir = tempfile.mkdtemp(
-            prefix='worker-installer-tasks-tests')
+            prefix='worker-installer-tasks-tests-')
         self.logger.info('Working directory: {0}'.format(tempdir))
         os.chdir(tempdir)
 
