@@ -195,6 +195,7 @@ def _set_ip(_):
         ip = ctx.instance.runtime_properties['ip']
     return ip
 
+
 @cloudify_agent_property('name')
 def _set_name(cloudify_agent):
     if ctx.type == context.DEPLOYMENT:
