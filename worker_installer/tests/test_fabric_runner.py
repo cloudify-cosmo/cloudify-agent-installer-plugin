@@ -169,7 +169,6 @@ class LocalFabricRunnerTest(unittest.TestCase):
                                    execution_env={'TEST_KEY': 'TEST_VALUE'})
         self.assertIn('TEST_KEY=TEST_VALUE', response.output)
 
-
     def test_download(self):
         output_path = self.runner.download(
             url='http://localhost:{0}/archive.tar.gz'.format(PORT))

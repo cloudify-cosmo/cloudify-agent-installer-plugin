@@ -15,7 +15,6 @@
 
 import os
 import platform
-import time
 
 from agent_packager import packager
 from cloudify import ctx
@@ -27,11 +26,15 @@ config = {
 
 resource_base = ctx.node.properties['resource_base']
 ctx.logger.info('Changing directory into {0}'.format(resource_base))
-os.chdir(resource_base)
-packager.create(config=config,
-                config_file=None,
-                force=False,
-                verbose=True)
+original = os.getcwd()
+try:
+    os.chdir(resource_base)
+    packager.create(config=config,
+                    config_file=None,
+                    force=False,
+                    verbose=False)
+finally:
+    os.chdir(original)
 
 dist = platform.dist()
 

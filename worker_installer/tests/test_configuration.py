@@ -15,9 +15,7 @@
 
 import testtools
 import getpass
-import pwd
 import os
-import platform
 from mock import patch, MagicMock
 
 from cloudify.context import BootstrapContext
@@ -25,7 +23,6 @@ from cloudify.context import BootstrapContext
 from worker_installer.configuration import cloudify_agent_property
 from worker_installer.configuration import prepare_agent
 from worker_installer.configuration import prepare_connection
-from worker_installer.fabric_runner import FabricCommandRunner
 
 
 def mock_context(properties=None,
@@ -133,7 +130,8 @@ class TestCloudifyAgentProperty(testtools.TestCase):
         self.assertEqual(cloudify_agent['prop'], 'value-overridden')
 
     @patch('worker_installer.configuration.ctx',
-           mock_context(properties={'cloudify_agent': {'prop': 'value-overridden'}},
+           mock_context(properties={'cloudify_agent':
+                                    {'prop': 'value-overridden'}},
                         agent_context={'prop': 'value'}))
     def test_properties_override_context(self):
 

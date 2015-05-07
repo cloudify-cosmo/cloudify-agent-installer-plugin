@@ -13,8 +13,6 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import os
-
 from cloudify.decorators import operation
 from cloudify import ctx
 
@@ -58,10 +56,10 @@ def install(cloudify_agent, **_):
             env.CLOUDIFY_DAEMON_EXTRA_ENV: _agent_env_path
         }
 
-    ctx.logger.info('Cloudify Agent : {0}'.format(cloudify_agent))
     agent_env_path = _create_agent_env_path()
     execution_env = _create_execution_env(agent_env_path)
-    utils.stringify_values(execution_env)
+    execution_env = utils.purge_none_values(execution_env)
+    execution_env = utils.stringify_values(execution_env)
 
     ctx.logger.info('Downloading Agent package from {0}'
                     .format(cloudify_agent['package_url']))
@@ -70,8 +68,12 @@ def install(cloudify_agent, **_):
     ctx.runner.untar(archive=package_path,
                      destination=cloudify_agent['agent_dir'])
 
+    ctx.logger.info('Auto-correcting agent virtualenv')
+    ctx.agent.run('configure --relocated-env')
     ctx.logger.info('Creating Agent...')
     ctx.agent.run('daemon create', execution_env=execution_env)
+    ctx.logger.info('Configuring Agent...')
+    ctx.agent.run('daemon configure', execution_env=execution_env)
     _set_runtime_properties(cloudify_agent)
 
 
@@ -79,28 +81,28 @@ def install(cloudify_agent, **_):
 @init_worker_installer
 def start(cloudify_agent, **_):
     ctx.logger.info('Starting Agent...')
-    ctx.agent.sudo('start --name={0}'.format(cloudify_agent['name']))
+    ctx.agent.sudo('daemon start --name={0}'.format(cloudify_agent['name']))
 
 
 @operation
 @init_worker_installer
 def restart(cloudify_agent, **_):
     ctx.logger.info('Restarting Agent...')
-    ctx.agent.sudo('restart --name={0}'.format(cloudify_agent['name']))
+    ctx.agent.sudo('daemon restart --name={0}'.format(cloudify_agent['name']))
 
 
 @operation
 @init_worker_installer
 def stop(cloudify_agent, **_):
     ctx.logger.info('Stopping Agent...')
-    ctx.agent.sudo('stop --name={0}'.format(cloudify_agent['name']))
+    ctx.agent.sudo('daemon stop --name={0}'.format(cloudify_agent['name']))
 
 
 @operation
 @init_worker_installer
 def uninstall(cloudify_agent, **_):
     ctx.logger.info('Deleting Agent...')
-    ctx.agent.sudo('delete --name={0}'.format(cloudify_agent['name']))
+    ctx.agent.sudo('daemon delete --name={0}'.format(cloudify_agent['name']))
 
 
 def _set_runtime_properties(cloudify_agent):

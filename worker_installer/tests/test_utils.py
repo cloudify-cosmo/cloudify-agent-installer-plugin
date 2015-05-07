@@ -39,8 +39,19 @@ export key=value
                 'key3': 10
             }
         }
-        utils.stringify_values(dictionary=env)
-        self.assertEqual(env['key'], 'string-value')
-        self.assertEqual(env['key2'], '5')
-        self.assertEqual(env['dict-key']['key3'], '10')
 
+        stringified = utils.stringify_values(dictionary=env)
+        self.assertEqual(stringified['key'], 'string-value')
+        self.assertEqual(stringified['key2'], '5')
+        self.assertEqual(stringified['dict-key']['key3'], '10')
+
+    def test_purge_none_values(self):
+
+        dictionary = {
+            'key': 'value',
+            'key2': None
+        }
+
+        purged = utils.purge_none_values(dictionary)
+        self.assertEqual(purged['key'], 'value')
+        self.assertNotIn('key2', purged)

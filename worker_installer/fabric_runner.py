@@ -170,7 +170,7 @@ class FabricCommandRunner(object):
                         error=str(e)
                     )
 
-    def sudo(self, command):
+    def sudo(self, command, quiet=False):
 
         """
         Execute a command under sudo.
@@ -189,7 +189,7 @@ class FabricCommandRunner(object):
         if self.local:
             return self.local_runner.sudo(command)
         return self.run('sudo {0}'.format(command),
-                        quiet=False)
+                        quiet=quiet)
 
     def run_script(self, script, args=None, quiet=True):
 

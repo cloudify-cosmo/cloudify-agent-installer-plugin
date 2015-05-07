@@ -13,6 +13,7 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
+import os
 from functools import wraps
 
 from cloudify import ctx
@@ -20,7 +21,6 @@ from cloudify.state import current_ctx
 
 from worker_installer.fabric_runner import FabricCommandRunner
 from worker_installer import configuration
-from worker_installer import utils
 
 
 def init_worker_installer(func):
@@ -75,12 +75,15 @@ class AgentCommandRunner(object):
         self._prefix = '{0}/python {0}/cfy-agent'.format(bin_path)
 
     def run(self, command, execution_env=None):
-        return self._runner.run('{0} {1}'
-                                .format(self._prefix,
-                                        command),
-                                execution_env=execution_env,
-                                quiet=False)
+        response = self._runner.run(
+            '{0} {1}'.format(self._prefix, command),
+            execution_env=execution_env,
+            quiet=False)
+        for line in response.output.split(os.linesep):
+            ctx.logger.info(line)
 
     def sudo(self, command):
-        return self._runner.sudo('{0} {1}'.format(self._prefix, command),
-                                 quiet=False)
+        response = self._runner.sudo(
+            '{0} {1}'.format(self._prefix, command), quiet=False)
+        for line in response.output.split(os.linesep):
+            ctx.logger.info(line)

@@ -15,9 +15,13 @@
 
 import unittest
 import getpass
+import os
 import tempfile
 
+from mock import patch
+
 from cloudify.workflows import local
+from cloudify.utils import setup_logger
 
 from worker_installer.tests import resources
 from worker_installer.tests import file_server
@@ -29,6 +33,7 @@ class WorkerInstallerLocalTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.logger = setup_logger('test_tasks')
         cls.resource_base = tempfile.mkdtemp(
             prefix='file-server-resource-base')
         cls.fs = file_server.FileServer(root_path=cls.resource_base)
@@ -38,9 +43,21 @@ class WorkerInstallerLocalTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.fs.stop()
 
-    def test_local_agent(self):
+    def setUp(self):
+        self.original_dir = os.getcwd()
+        tempdir = tempfile.mkdtemp(
+            prefix='worker-installer-tasks-tests')
+        self.logger.info('Working directory: {0}'.format(tempdir))
+        os.chdir(tempdir)
+
+    def tearDown(self):
+        os.chdir(self.original_dir)
+
+    @patch('cloudify.workflows.local._validate_node')
+    def test_local_agent(self, _):
         blueprint_path = resources.get_resource(
             'blueprints/local-agent-blueprint.yaml')
+        self.logger.info('Initiating local env')
         env = local.init_env(blueprint_path,
                              inputs={'user': getpass.getuser(),
                                      'resource_base': self.resource_base})

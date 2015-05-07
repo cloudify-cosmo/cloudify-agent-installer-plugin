@@ -49,17 +49,21 @@ def cloudify_agent_property(agent_property=None,
             if agent_property in runtime_properties:
                 invocation[agent_property] = runtime_properties[
                     agent_property]
+                return
 
             # if the property is declared on the node, use it
             if agent_property in node_properties:
                 invocation[agent_property] = node_properties[agent_property]
                 return
 
-            # if the property is inside the bootstrap context, use it
+            # if the property is inside the bootstrap context,
+            # and its value is not None, use it
             if hasattr(agent_context, context_attribute):
-                invocation[agent_property] = getattr(agent_context,
-                                                     context_attribute)
-                return
+                value = getattr(agent_context, context_attribute)
+                if value is not None:
+                    invocation[agent_property] = getattr(agent_context,
+                                                         context_attribute)
+                    return
 
             value = function(*args, **kwargs)
             if value is not None:
@@ -115,38 +119,50 @@ def prepare_agent(cloudify_agent):
     _set_process_management(cloudify_agent)
 
 
-@cloudify_agent_property(agent_property='port',
-                         context_attribute='remote_execution_port')
+########################################################################
+# These are properties that are passed to the FabricRunner in order to
+# either connect to the remote machine or just run local commands.
+# they must be calculated here.
+########################################################################
+
+@cloudify_agent_property(
+    agent_property='port',
+    context_attribute='remote_execution_port',
+    mandatory=False
+)
 def _set_port(_):
     pass
 
 
-@cloudify_agent_property('user')
+@cloudify_agent_property('user', mandatory=False)
 def _set_user(_):
     raise getpass.getuser()
 
 
-@cloudify_agent_property(agent_property='key',
-                         context_attribute='agent_key_path',
-                         mandatory=False)
+@cloudify_agent_property(
+    agent_property='key',
+    context_attribute='agent_key_path',
+    mandatory=False
+)
 def _set_key(_):
     pass
 
 
-@cloudify_agent_property('password',
-                         mandatory=False)
+@cloudify_agent_property('password', mandatory=False)
 def _set_password(_):
     pass
 
 
-@cloudify_agent_property('min_workers')
-def _set_min_workers(_):
-    return 0
+@cloudify_agent_property('local')
+def _set_local(_):
+    return ctx.type == context.DEPLOYMENT
 
 
-@cloudify_agent_property('max_workers')
-def _set_max_workers(_):
-    return 5
+########################################################################
+# These are properties that are essential for the installer to operate,
+# they either do not have defaults on the agent side or simply are not
+# related to the agent side. (like distro, basedir...)
+########################################################################
 
 
 @cloudify_agent_property('distro')
@@ -211,15 +227,32 @@ def _set_manager_ip(_):
     return utils.get_manager_ip()
 
 
+########################################################################
+# These are properties that are passed directly to the cfy-agent
+# command line. they have default on the agent. That is why we don't
+# specify them here again. However, for these properties to be configurable
+# from the blueprint, these setters must defined here.
+########################################################################
+
+
+@cloudify_agent_property('process_management')
+def _set_process_management(_):
+    pass
+
+
 @cloudify_agent_property('env')
 def _set_env(_):
-    return {}
+    pass
 
 
-@cloudify_agent_property('local')
-def _set_local():
-    return ctx.type == context.DEPLOYMENT
+@cloudify_agent_property('min_workers')
+def _set_min_workers(_):
+    pass
 
+
+@cloudify_agent_property('max_workers')
+def _set_max_workers(_):
+    pass
 
 ########################################################################
 # This is not a cloudify_agent_property because the name of
@@ -227,13 +260,10 @@ def _set_local():
 # this is not configurable to avoid misuse. both 'basedir' and 'name'
 # are configurable so a user will have full control over the directory
 ########################################################################
+
+
 def _set_agent_dir(cloudify_agent):
     cloudify_agent['agent_dir'] = os.path.join(
         cloudify_agent['basedir'],
         cloudify_agent['name']
     )
-
-@cloudify_agent_property('process_management')
-def _set_process_management(_):
-    return 'init.d'
-

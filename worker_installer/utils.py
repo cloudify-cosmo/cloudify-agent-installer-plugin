@@ -15,11 +15,13 @@
 
 import tempfile
 import os
+import copy
 
 
 def env_to_file(env_variables, destination_path=None):
 
     """
+    Write environment variables to a file.
 
     :param env_variables: environment variables
     :type env_variables: dict
@@ -50,8 +52,37 @@ def env_to_file(env_variables, destination_path=None):
 
 def stringify_values(dictionary):
 
-    for key, value in dictionary.iteritems():
+    """
+    Given a dictionary convert all values into the string representation of
+    the value. useful for dicts that only allow string values (like os.environ)
+
+    :param dictionary: the dictionary to convert
+    :return: a copy of the dictionary where all values are now string.
+    :rtype: dict
+    """
+
+    dict_copy = copy.deepcopy(dictionary)
+
+    for key, value in dict_copy.iteritems():
         if isinstance(value, dict):
             stringify_values(value)
         else:
-            dictionary[key] = str(value)
+            dict_copy[key] = str(value)
+    return dict_copy
+
+
+def purge_none_values(dictionary):
+
+    """
+    Given a dictionary remove all key who's value is None.
+
+    :param dictionary: the dictionary to convert
+    :return: a copy of the dictionary where no key has a None value
+    :rtype: dict
+    """
+
+    dict_copy = copy.deepcopy(dictionary)
+    for key, value in dictionary.iteritems():
+        if dictionary[key] is None:
+            del dict_copy[key]
+    return dict_copy

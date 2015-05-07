@@ -1,7 +1,7 @@
 tosca_definitions_version: cloudify_dsl_1_1
 
 imports:
-    - http://www.getcloudify.org/spec/cloudify/3.2rc1/types.yaml
+    - http://www.getcloudify.org/spec/cloudify/3.2/types.yaml
 
 inputs:
 
@@ -44,14 +44,11 @@ node_templates:
         install:
           inputs:
             cloudify_agent:
-              package_url: { get_attribute: [ agent_package, package_url ] }
               ip: 127.0.0.1
               manager_ip: 127.0.0.1
-              user: { get_input: user }
               local: true
               basedir: /tmp
-              min_workers: 0
-              max_workers: 5
+              package_url: { get_attribute: [ agent_package, package_url ] }
 
     relationships:
       - target: agent_package
