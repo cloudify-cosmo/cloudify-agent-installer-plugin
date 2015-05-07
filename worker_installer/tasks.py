@@ -61,15 +61,14 @@ def install(cloudify_agent, **_):
     execution_env = utils.purge_none_values(execution_env)
     execution_env = utils.stringify_values(execution_env)
 
-    ctx.logger.info('Downloading Agent package from {0}'
-                    .format(cloudify_agent['package_url']))
-    package_path = ctx.runner.download(url=cloudify_agent['package_url'])
-    ctx.logger.info('Extracting Agent package...')
-    ctx.runner.untar(archive=package_path,
-                     destination=cloudify_agent['agent_dir'])
+    ctx.logger.debug('Cloudify Agent will be created using the following '
+                     'environment: {0}'.format(execution_env))
 
-    ctx.logger.info('Auto-correcting agent virtualenv')
-    ctx.agent.run('configure --relocated-env')
+    if 'source_url' in cloudify_agent:
+        download_from_source(cloudify_agent)
+    else:
+        download_from_package(cloudify_agent)
+
     ctx.logger.info('Creating Agent...')
     ctx.agent.run('daemon create', execution_env=execution_env)
     ctx.logger.info('Configuring Agent...')
@@ -107,3 +106,33 @@ def uninstall(cloudify_agent, **_):
 
 def _set_runtime_properties(cloudify_agent):
     ctx.instance.runtime_properties['cloudify_agent'] = cloudify_agent
+
+
+def download_from_source(cloudify_agent):
+    requirements = cloudify_agent.get('requirements')
+    source_url = cloudify_agent['source_url']
+    ctx.logger.info('Installing virtualenv')
+    ctx.runner.sudo('pip install virtualenv')
+    env_path = '{0}/env'.format(cloudify_agent['agent_dir'])
+    ctx.logger.info('Creating virtualenv at {0}'.format(env_path))
+    ctx.runner.run('virtualenv {0}'.format(env_path))
+    if requirements:
+        ctx.logger.info('Installing requirements file: {0}'
+                        .format(requirements))
+        ctx.runner.run('{0}/bin/pip install -r {1}'
+                       .format(env_path, requirements))
+    ctx.logger.info('Installing Cloudify Agent from {0}...'
+                    .format(source_url))
+    ctx.runner.run('{0}/bin/pip install {1}'.format(env_path, source_url))
+
+
+def download_from_package(cloudify_agent):
+    ctx.logger.info('Downloading Agent package from {0}'
+                    .format(cloudify_agent['package_url']))
+    package_path = ctx.runner.download(url=cloudify_agent['package_url'])
+    ctx.logger.info('Extracting Agent package...')
+    ctx.runner.untar(archive=package_path,
+                     destination=cloudify_agent['agent_dir'])
+
+    ctx.logger.info('Auto-correcting agent virtualenv')
+    ctx.agent.run('configure --relocated-env')

@@ -17,10 +17,11 @@ import os
 import getpass
 from functools import wraps
 
-from cloudify.exceptions import NonRecoverableError
 from cloudify import ctx
 from cloudify import utils
 from cloudify import context
+
+from worker_installer import exceptions
 
 
 def cloudify_agent_property(agent_property=None,
@@ -80,7 +81,7 @@ def cloudify_agent_property(agent_property=None,
                     '{0}.runtime_properties.cloudify_agent'\
                     .format(ctx.instance.id)
                 context_path = 'bootstrap_context.cloudify_agent'
-                raise NonRecoverableError(
+                raise exceptions.WorkerInstallerConfigurationError(
                     '{0} was not found in any of '
                     'the following: 1. {1}; 2. {2}; 3. {3}; 4. {4}'
                     .format(agent_property,
@@ -105,6 +106,21 @@ def prepare_connection(cloudify_agent):
 
 
 def prepare_agent(cloudify_agent):
+
+    """
+    Augments the cloudify agent properties with values according to heuristics
+    determined in the cloudify_agent_property decorator.
+
+    :param cloudify_agent: the agent properties
+
+    """
+
+    ##################################################################
+    # the order of each setter invocation is very important because
+    # some properties rely on other, do not change the order unless you
+    # know exactly what you are doing
+    ##################################################################
+
     _set_name(cloudify_agent)
     _set_basedir(cloudify_agent)
     _set_min_workers(cloudify_agent)
@@ -112,11 +128,27 @@ def prepare_agent(cloudify_agent):
     _set_queue(cloudify_agent)
     _set_distro(cloudify_agent)
     _set_distro_codename(cloudify_agent)
-    _set_package_url(cloudify_agent)
     _set_manager_ip(cloudify_agent)
     _set_env(cloudify_agent)
     _set_agent_dir(cloudify_agent)
     _set_process_management(cloudify_agent)
+    _set_source_url(cloudify_agent)
+    _set_requirements(cloudify_agent)
+    _set_package_url(cloudify_agent)
+
+    def validate():
+        if 'source_url' in cloudify_agent and 'package_url' in cloudify_agent:
+            raise exceptions.WorkerInstallerConfigurationError(
+                "Cannot specify both 'source_url' and 'package_url' "
+                "simultaneously."
+            )
+        if 'source_url' not in cloudify_agent and 'package_url' not in \
+                cloudify_agent:
+            raise exceptions.WorkerInstallerConfigurationError(
+                "Must specify either 'source_url' or 'package_url'"
+            )
+
+    validate()
 
 
 ########################################################################
@@ -177,8 +209,10 @@ def _set_distro_codename(_):
     return dist[2].lower()
 
 
-@cloudify_agent_property('package_url')
+@cloudify_agent_property('package_url', mandatory=False)
 def _set_package_url(cloudify_agent):
+    if 'source_url' in cloudify_agent:
+        return
     return '{0}/packages/agents/{1}-{2}-agent.tar.gz'.format(
         utils.get_manager_file_server_url(),
         cloudify_agent['distro'],

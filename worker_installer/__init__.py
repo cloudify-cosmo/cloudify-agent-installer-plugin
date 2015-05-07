@@ -72,7 +72,7 @@ class AgentCommandRunner(object):
                  agent_dir):
         self._runner = runner
         bin_path = '{0}/env/bin'.format(agent_dir)
-        self._prefix = '{0}/python {0}/cfy-agent --debug'.format(bin_path)
+        self._prefix = '{0}/python {0}/cfy-agent'.format(bin_path)
 
     def run(self, command, execution_env=None):
         response = self._runner.run(

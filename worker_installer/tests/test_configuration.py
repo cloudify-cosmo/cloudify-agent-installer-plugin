@@ -13,7 +13,7 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import testtools
+import unittest
 import getpass
 import os
 from mock import patch, MagicMock
@@ -24,6 +24,8 @@ from cloudify.mocks import MockCloudifyContext
 from worker_installer.configuration import cloudify_agent_property
 from worker_installer.configuration import prepare_agent
 from worker_installer.configuration import prepare_connection
+
+from worker_installer import exceptions
 
 
 def mock_context(properties=None,
@@ -52,7 +54,7 @@ def mock_context(properties=None,
     return context
 
 
-class TestCloudifyAgentProperty(testtools.TestCase):
+class TestCloudifyAgentProperty(unittest.TestCase):
 
     @patch('worker_installer.configuration.ctx',
            mock_context())
@@ -66,6 +68,20 @@ class TestCloudifyAgentProperty(testtools.TestCase):
         prop(cloudify_agent)
 
         self.assertEqual(cloudify_agent['prop'], 'value')
+
+    @patch('worker_installer.configuration.ctx',
+           mock_context())
+    def test_missing_mandatory_property(self):
+
+        @cloudify_agent_property('prop')
+        def prop(_):
+            pass
+
+        cloudify_agent = {}
+        self.assertRaisesRegexp(
+            exceptions.WorkerInstallerConfigurationError,
+            'prop was not found in any of the following',
+            prop, cloudify_agent)
 
     @patch('worker_installer.configuration.ctx',
            mock_context())
@@ -148,7 +164,7 @@ class TestCloudifyAgentProperty(testtools.TestCase):
         self.assertEqual(cloudify_agent['prop'], 'value-overridden')
 
 
-class TestConfiguration(testtools.TestCase):
+class TestConfiguration(unittest.TestCase):
 
     def setUp(self):
         super(TestConfiguration, self).setUp()
@@ -211,7 +227,6 @@ class TestConfiguration(testtools.TestCase):
                    'cloudify_agent': {
                        'distro': 'distro',
                        'distro_codename': 'distro_codename',
-                       'workdir': 'workdir',
                        'home_dir': 'homedir',
                        'basedir': 'basedir'
                    }
@@ -235,3 +250,22 @@ class TestConfiguration(testtools.TestCase):
                            'distro-distro_codename-agent.tar.gz'
         }
         self.assertEqual(expected, cloudify_agent)
+
+    @patch('worker_installer.configuration.ctx',
+           mock_context(
+               properties={
+                   'cloudify_agent': {
+                       'basedir': 'basedir',
+                       'source_url': 'source',
+                       'package_url': 'package',
+                   }
+               }))
+    def test_source_url_and_package_url(self):
+        cloudify_agent = {}
+        self.assertRaisesRegexp(
+            exceptions.WorkerInstallerConfigurationError,
+            "Cannot specify both 'source_url' and 'package_url' "
+            "simultaneously.",
+            prepare_agent,
+            cloudify_agent
+        )

@@ -54,13 +54,23 @@ class WorkerInstallerLocalTest(unittest.TestCase):
         os.chdir(self.original_dir)
 
     @patch('cloudify.workflows.local._validate_node')
-    def test_local_agent(self, _):
+    def test_local_agent_from_package(self, _):
         blueprint_path = resources.get_resource(
-            'blueprints/local-agent-blueprint.yaml')
+            'blueprints/agent-from-package/local-agent-blueprint.yaml')
         self.logger.info('Initiating local env')
         env = local.init_env(blueprint_path,
                              inputs={'user': getpass.getuser(),
                                      'resource_base': self.resource_base})
+        env.execute('install', task_retries=0)
+        env.execute('uninstall', task_retries=0)
+        self._assert_agent_running()
+
+    @patch('cloudify.workflows.local._validate_node')
+    def test_local_agent_from_source(self, _):
+        blueprint_path = resources.get_resource(
+            'blueprints/agent-from-source/local-agent-blueprint.yaml')
+        self.logger.info('Initiating local env')
+        env = local.init_env(blueprint_path)
         env.execute('install', task_retries=0)
         env.execute('uninstall', task_retries=0)
         self._assert_agent_running()

@@ -27,10 +27,13 @@ from fabric.context_managers import hide
 from fabric.context_managers import shell_env
 from fabric.contrib.files import exists
 
-from cloudify import exceptions
 from cloudify.utils import LocalCommandRunner
 from cloudify.utils import CommandExecutionResponse
+from cloudify.exceptions import CommandExecutionException
+from cloudify.exceptions import CommandExecutionError
 from cloudify.utils import setup_logger
+
+from worker_installer import exceptions
 
 DEFAULT_REMOTE_EXECUTION_PORT = 22
 
@@ -91,14 +94,14 @@ class FabricCommandRunner(object):
 
     def _validate_ssh_config(self):
         if not self.host:
-            raise exceptions.NonRecoverableError('Missing host')
+            raise exceptions.WorkerInstallerConfigurationError('Missing host')
         if not self.user:
-            raise exceptions.NonRecoverableError('Missing user')
+            raise exceptions.WorkerInstallerConfigurationError('Missing user')
         if self.password and self.key:
-            raise exceptions.NonRecoverableError(
+            raise exceptions.WorkerInstallerConfigurationError(
                 'Cannot specify both key and password')
         if not self.password and not self.key:
-            raise exceptions.NonRecoverableError(
+            raise exceptions.WorkerInstallerConfigurationError(
                 'Must specify either key or password')
 
     def _set_env(self):
@@ -460,7 +463,7 @@ class FabricCommandRunner(object):
                 self.run('which curl')
                 command = 'curl {0} -O {1}'.format(url, output_path)
             except CommandExecutionResponse:
-                raise exceptions.NonRecoverableError(
+                raise exceptions.WorkerInstallerConfigurationError(
                     'Cannot find neither wget nor curl'
                     .format(url))
         self.run(command)
@@ -540,7 +543,7 @@ class FabricCommandRunner(object):
         fabric.network.disconnect_all()
 
 
-class FabricCommandExecutionError(exceptions.CommandExecutionError):
+class FabricCommandExecutionError(CommandExecutionError):
 
     """
     Indicates a failure occurred while trying to execute the command.
@@ -550,8 +553,7 @@ class FabricCommandExecutionError(exceptions.CommandExecutionError):
     pass
 
 
-class FabricCommandExecutionException(
-        exceptions.CommandExecutionException):
+class FabricCommandExecutionException(CommandExecutionException):
 
     """
     Indicates the command was executed but a failure occurred.

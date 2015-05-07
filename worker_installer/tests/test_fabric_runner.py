@@ -20,8 +20,8 @@ import logging
 
 
 from cloudify.utils import setup_logger
-from cloudify import exceptions
 
+from worker_installer import exceptions
 from worker_installer.fabric_runner import FabricCommandRunner
 from worker_installer.tests.file_server import FileServer
 from worker_installer import tests
@@ -42,46 +42,42 @@ class TestDefaults(unittest.TestCase):
 class TestValidations(unittest.TestCase):
 
     def test_no_host(self):
-        try:
-            FabricCommandRunner(
-                validate_connection=False,
-                user='user',
-                password='password')
-            self.fail('Expected error due to missing host')
-        except exceptions.NonRecoverableError as e:
-            self.assertIn('Missing host', str(e))
+        self.assertRaisesRegexp(
+            exceptions.WorkerInstallerConfigurationError,
+            'Missing host',
+            FabricCommandRunner,
+            validate_connection=False,
+            user='user',
+            password='password')
 
     def test_no_user(self):
-        try:
-            FabricCommandRunner(
-                validate_connection=False,
-                host='host',
-                password='password')
-            self.fail('Expected error due to missing user')
-        except exceptions.NonRecoverableError as e:
-            self.assertIn('Missing user', str(e))
+        self.assertRaisesRegexp(
+            exceptions.WorkerInstallerConfigurationError,
+            'Missing user',
+            FabricCommandRunner,
+            validate_connection=False,
+            host='host',
+            password='password')
 
     def test_key_and_password(self):
-        try:
-            FabricCommandRunner(
-                validate_connection=False,
-                host='host',
-                user='user',
-                password='password',
-                key='key')
-            self.fail('Expected error due to specifying key and password')
-        except exceptions.NonRecoverableError as e:
-            self.assertIn('Cannot specify both key and password', str(e))
+        self.assertRaisesRegexp(
+            exceptions.WorkerInstallerConfigurationError,
+            'Cannot specify both key and password',
+            FabricCommandRunner,
+            validate_connection=False,
+            host='host',
+            user='user',
+            password='password',
+            key='key')
 
     def test_no_key_no_password(self):
-        try:
-            FabricCommandRunner(
-                validate_connection=False,
-                host='host',
-                user='password')
-            self.fail('Expected error due to not specifying key and password')
-        except exceptions.NonRecoverableError as e:
-            self.assertIn('Must specify either key or password', str(e))
+        self.assertRaisesRegexp(
+            exceptions.WorkerInstallerConfigurationError,
+            'Must specify either key or password',
+            FabricCommandRunner,
+            validate_connection=False,
+            host='host',
+            user='password')
 
 
 ############################################################################
