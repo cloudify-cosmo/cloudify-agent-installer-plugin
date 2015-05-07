@@ -17,6 +17,7 @@ import unittest
 import os
 import tempfile
 import logging
+import platform
 
 
 from cloudify.utils import setup_logger
@@ -181,6 +182,7 @@ class LocalFabricRunnerTest(unittest.TestCase):
 
     def test_machine_distribution(self):
         dist = self.runner.machine_distribution()
-        self.assertEqual('Ubuntu', dist[0])
-        self.assertEqual('14.04', dist[1])
-        self.assertEqual('trusty', dist[2])
+        expected_dist = platform.dist()
+        self.assertEqual(expected_dist[0], dist[0])
+        self.assertEqual(expected_dist[1], dist[1])
+        self.assertEqual(expected_dist[2], dist[2])

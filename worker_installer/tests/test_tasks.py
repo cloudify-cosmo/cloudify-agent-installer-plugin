@@ -60,7 +60,8 @@ class WorkerInstallerLocalTest(unittest.TestCase):
         self.logger.info('Initiating local env')
         env = local.init_env(blueprint_path,
                              inputs={'user': getpass.getuser(),
-                                     'resource_base': self.resource_base})
+                                     'resource_base': self.resource_base},
+                             ignored_modules='plugin_installer.tasks')
         env.execute('install', task_retries=0)
         env.execute('uninstall', task_retries=0)
         self._assert_agent_running()
@@ -70,7 +71,8 @@ class WorkerInstallerLocalTest(unittest.TestCase):
         blueprint_path = resources.get_resource(
             'blueprints/agent-from-source/local-agent-blueprint.yaml')
         self.logger.info('Initiating local env')
-        env = local.init_env(blueprint_path)
+        env = local.init_env(blueprint_path,
+                             ignored_modules='plugin_installer.tasks')
         env.execute('install', task_retries=0)
         env.execute('uninstall', task_retries=0)
         self._assert_agent_running()
