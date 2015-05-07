@@ -13,12 +13,12 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import testtools
+import unittest2 as unittest
 
 from worker_installer import utils
 
 
-class TestUtils(testtools.TestCase):
+class TestUtils(unittest.TestCase):
 
     def test_env_to_file(self):
         file_path = utils.env_to_file({'key': 'value', 'key2': 'value2'})
