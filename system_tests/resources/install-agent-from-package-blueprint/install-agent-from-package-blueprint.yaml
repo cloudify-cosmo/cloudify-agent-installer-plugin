@@ -1,0 +1,41 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.2/types.yaml
+    - http://www.getcloudify.org/spec/openstack-plugin/1.2/plugin.yaml
+
+inputs:
+
+  image:
+    description: >
+      Image to be used when launching agent VM's
+
+  flavor:
+    description: >
+      Flavor of the agent VM's
+
+node_templates:
+
+  host:
+    type: cloudify.openstack.nodes.Server
+    properties:
+      image: { get_input: image }
+      flavor: { get_input: flavor }
+      server:
+        userdata: |
+          mkdir -p /tmp/rabbitmq
+          cd /tmp/rabbitmq
+          curl -L -O https://www.rabbitmq.com/releases/rabbitmq-server/v3.4.2/rabbitmq-server-generic-unix-3.4.2.tar.gz
+          tar -xvf rabbitmq-server-generic-unix-3.4.2.tar.gz
+          nohup ./rabbitmq_server-3.4.2/sbin/rabbitmq-server > /dev/null 2>&1 &
+    interfaces:
+      cloudify.interfaces.worker_installer:
+        install:
+          inputs:
+            cloudify_agent:
+              ip: 127.0.0.1
+              manager_ip: 127.0.0.1
+              local: true
+              basedir: /tmp
+              source_url: https://github.com/cloudify-cosmo/cloudify-agent/archive/CFY-2649-cloudify-agent-impl.zip
+              requirements: https://raw.githubusercontent.com/cloudify-cosmo/cloudify-agent/CFY-2649-cloudify-agent-impl/dev-requirements.txt
