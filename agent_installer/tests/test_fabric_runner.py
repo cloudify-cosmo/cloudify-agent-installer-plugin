@@ -22,11 +22,11 @@ import platform
 
 from cloudify.utils import setup_logger
 
-from worker_installer import exceptions
-from worker_installer.fabric_runner import FabricCommandRunner
-from worker_installer.tests.file_server import FileServer
-from worker_installer import tests
-from worker_installer.tests.file_server import PORT
+from agent_installer import exceptions
+from agent_installer.fabric_runner import FabricCommandRunner
+from agent_installer.tests.file_server import FileServer
+from agent_installer import tests
+from agent_installer.tests.file_server import PORT
 
 
 class TestDefaults(unittest.TestCase):

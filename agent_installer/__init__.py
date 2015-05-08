@@ -19,8 +19,8 @@ from functools import wraps
 from cloudify import ctx
 from cloudify.state import current_ctx
 
-from worker_installer.fabric_runner import FabricCommandRunner
-from worker_installer import configuration
+from agent_installer.fabric_runner import FabricCommandRunner
+from agent_installer import configuration
 
 
 def init_worker_installer(func):

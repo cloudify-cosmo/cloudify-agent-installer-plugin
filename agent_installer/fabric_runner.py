@@ -33,7 +33,7 @@ from cloudify.exceptions import CommandExecutionException
 from cloudify.exceptions import CommandExecutionError
 from cloudify.utils import setup_logger
 
-from worker_installer import exceptions
+from agent_installer import exceptions
 
 DEFAULT_REMOTE_EXECUTION_PORT = 22
 

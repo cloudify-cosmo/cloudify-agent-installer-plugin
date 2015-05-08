@@ -16,14 +16,14 @@
 from cloudify.decorators import operation
 from cloudify import ctx
 
-from worker_installer import init_worker_installer
-from worker_installer import env
-from worker_installer import utils
+from agent_installer import init_worker_installer
+from agent_installer import env
+from agent_installer import utils
 
 
 @operation
 @init_worker_installer
-def install(cloudify_agent, **_):
+def create(cloudify_agent, **_):
 
     def _create_agent_env_path():
         local_env_path = utils.env_to_file(cloudify_agent.get('env', {}))
@@ -71,9 +71,14 @@ def install(cloudify_agent, **_):
 
     ctx.logger.info('Creating Agent...')
     ctx.agent.run('daemon create', execution_env=execution_env)
-    ctx.logger.info('Configuring Agent...')
-    ctx.agent.run('daemon configure', execution_env=execution_env)
     _set_runtime_properties(cloudify_agent)
+
+
+@operation
+@init_worker_installer
+def configure(cloudify_agent, **_):
+    ctx.logger.info('Configuring Agent...')
+    ctx.agent.run('daemon configure --name={0}'.format(cloudify_agent['name']))
 
 
 @operation
@@ -85,13 +90,6 @@ def start(cloudify_agent, **_):
 
 @operation
 @init_worker_installer
-def restart(cloudify_agent, **_):
-    ctx.logger.info('Restarting Agent...')
-    ctx.agent.sudo('daemon restart --name={0}'.format(cloudify_agent['name']))
-
-
-@operation
-@init_worker_installer
 def stop(cloudify_agent, **_):
     ctx.logger.info('Stopping Agent...')
     ctx.agent.sudo('daemon stop --name={0}'.format(cloudify_agent['name']))
@@ -99,9 +97,16 @@ def stop(cloudify_agent, **_):
 
 @operation
 @init_worker_installer
-def uninstall(cloudify_agent, **_):
+def delete(cloudify_agent, **_):
     ctx.logger.info('Deleting Agent...')
     ctx.agent.sudo('daemon delete --name={0}'.format(cloudify_agent['name']))
+
+
+@operation
+@init_worker_installer
+def restart(cloudify_agent, **_):
+    ctx.logger.info('Restarting Agent...')
+    ctx.agent.sudo('daemon restart --name={0}'.format(cloudify_agent['name']))
 
 
 def _set_runtime_properties(cloudify_agent):

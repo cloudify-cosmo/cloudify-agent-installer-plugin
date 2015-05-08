@@ -20,7 +20,7 @@ setup(
     version='1.2',
     author='Gigaspaces',
     author_email='cloudify@gigaspaces.com',
-    packages=['worker_installer'],
+    packages=['agent_installer'],
     license='LICENSE',
     description='Plugin for installing a Cloudify agent on a machine',
     install_requires=[

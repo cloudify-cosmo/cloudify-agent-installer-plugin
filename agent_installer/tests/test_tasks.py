@@ -23,8 +23,8 @@ from mock import patch
 from cloudify.workflows import local
 from cloudify.utils import setup_logger
 
-from worker_installer.tests import resources
-from worker_installer.tests import file_server
+from agent_installer.tests import resources
+from agent_installer.tests import file_server
 
 
 class WorkerInstallerLocalTest(unittest.TestCase):

@@ -21,11 +21,10 @@ from mock import patch, MagicMock
 from cloudify.context import BootstrapContext
 from cloudify.mocks import MockCloudifyContext
 
-from worker_installer.configuration import cloudify_agent_property
-from worker_installer.configuration import prepare_agent
-from worker_installer.configuration import prepare_connection
-
-from worker_installer import exceptions
+from agent_installer.configuration import cloudify_agent_property
+from agent_installer.configuration import prepare_agent
+from agent_installer.configuration import prepare_connection
+from agent_installer import exceptions
 
 
 def mock_context(properties=None,

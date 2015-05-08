@@ -15,7 +15,7 @@
 
 import unittest2 as unittest
 
-from worker_installer import utils
+from agent_installer import utils
 
 
 class TestUtils(unittest.TestCase):

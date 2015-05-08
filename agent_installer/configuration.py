@@ -21,7 +21,7 @@ from cloudify import ctx
 from cloudify import utils
 from cloudify import context
 
-from worker_installer import exceptions
+from agent_installer import exceptions
 
 
 def cloudify_agent_property(agent_property=None,
