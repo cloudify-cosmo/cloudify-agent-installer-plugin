@@ -19,7 +19,6 @@ import tempfile
 import logging
 import platform
 
-
 from cloudify.utils import setup_logger
 
 from worker_installer import exceptions

@@ -41,7 +41,8 @@ def init_worker_installer(func):
             key=cloudify_agent.get('key'),
             port=cloudify_agent.get('port'),
             password=cloudify_agent.get('password'),
-            local=cloudify_agent['local'])
+            local=cloudify_agent['local'],
+            fabric_env=cloudify_agent.get('fabric_env'))
         setattr(current_ctx.get_ctx(), 'runner', runner)
 
         configuration.prepare_agent(cloudify_agent)
@@ -79,11 +80,13 @@ class AgentCommandRunner(object):
             '{0} {1}'.format(self._prefix, command),
             execution_env=execution_env,
             quiet=False)
-        for line in response.output.split(os.linesep):
-            ctx.logger.info(line)
+        if response.output:
+            for line in response.output.split(os.linesep):
+                ctx.logger.info(line)
 
     def sudo(self, command):
         response = self._runner.sudo(
             '{0} {1}'.format(self._prefix, command), quiet=False)
-        for line in response.output.split(os.linesep):
-            ctx.logger.info(line)
+        if response.output:
+            for line in response.output.split(os.linesep):
+                ctx.logger.info(line)

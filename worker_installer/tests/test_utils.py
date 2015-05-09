@@ -23,12 +23,9 @@ class TestUtils(unittest.TestCase):
     def test_env_to_file(self):
         file_path = utils.env_to_file({'key': 'value', 'key2': 'value2'})
         with open(file_path) as f:
-            self.assertEqual(f.read(), """#!/bin/bash
-
-export key2=value2
-export key=value
-
-""")
+            content = f.read()
+        self.assertIn('export key=value', content)
+        self.assertIn('export key2=value2', content)
 
     def test_stringify_values(self):
 

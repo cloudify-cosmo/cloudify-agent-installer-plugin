@@ -135,6 +135,7 @@ def prepare_agent(cloudify_agent):
     _set_source_url(cloudify_agent)
     _set_requirements(cloudify_agent)
     _set_package_url(cloudify_agent)
+    _set_fabric_env(cloudify_agent)
 
     def validate():
         if 'source_url' in cloudify_agent and 'package_url' in cloudify_agent:
@@ -273,6 +274,11 @@ def _set_manager_ip(_):
 
 @cloudify_agent_property('env', mandatory=False)
 def _set_env(_):
+    pass
+
+
+@cloudify_agent_property('fabric_env', mandatory=False)
+def _set_fabric_env(_):
     pass
 
 

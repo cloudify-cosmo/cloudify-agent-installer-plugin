@@ -123,13 +123,15 @@ def download_from_source(cloudify_agent):
                        .format(env_path, requirements))
     ctx.logger.info('Installing Cloudify Agent from {0}...'
                     .format(source_url))
-    ctx.runner.run('{0}/bin/pip install {1}'.format(env_path, source_url))
+    ctx.runner.run('{0}/bin/pip install {1}'
+                   .format(env_path, source_url))
 
 
 def download_from_package(cloudify_agent):
     ctx.logger.info('Downloading Agent package from {0}'
                     .format(cloudify_agent['package_url']))
-    package_path = ctx.runner.download(url=cloudify_agent['package_url'])
+    package_path = ctx.runner.download(
+        url=cloudify_agent['package_url'])
     ctx.logger.info('Extracting Agent package...')
     ctx.runner.untar(archive=package_path,
                      destination=cloudify_agent['agent_dir'])
