@@ -617,7 +617,7 @@ class FabricRunner(object):
         fabric.network.disconnect_all()
 
 
-class FabricCommandExecutionError(CommandExecutionError, NonRecoverableError):
+class FabricCommandExecutionError(CommandExecutionError):
 
     """
     Indicates a failure occurred while trying to execute the command.
