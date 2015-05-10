@@ -17,8 +17,6 @@ import os
 import json
 import logging
 import tempfile
-import platform
-import shutil
 
 import fabric.network
 from fabric import api as fabric_api
