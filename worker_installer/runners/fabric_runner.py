@@ -26,6 +26,7 @@ from fabric.context_managers import shell_env
 from fabric.contrib.files import exists
 
 from cloudify.utils import CommandExecutionResponse
+from cloudify.exceptions import NonRecoverableError
 from cloudify.exceptions import CommandExecutionException
 from cloudify.exceptions import CommandExecutionError
 from cloudify.utils import setup_logger
@@ -156,6 +157,7 @@ class FabricRunner(object):
                         raise FabricCommandExecutionException(
                             command=command,
                             error=r.stdout,
+                            output=None,
                             code=r.return_code
                         )
                     return FabricCommandExecutionResponse(
@@ -615,7 +617,7 @@ class FabricRunner(object):
         fabric.network.disconnect_all()
 
 
-class FabricCommandExecutionError(CommandExecutionError):
+class FabricCommandExecutionError(CommandExecutionError, NonRecoverableError):
 
     """
     Indicates a failure occurred while trying to execute the command.

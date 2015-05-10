@@ -128,10 +128,9 @@ node_templates:
               ip: { get_attribute: [ floating_ip, floating_ip_address ] }
               source_url: https://github.com/cloudify-cosmo/cloudify-agent/archive/CFY-2649-cloudify-agent-impl.zip
               requirements: https://raw.githubusercontent.com/cloudify-cosmo/cloudify-agent/CFY-2649-cloudify-agent-impl/dev-requirements.txt
-
     relationships:
       - target: floating_ip
-        type: cloudify.openstack.server_connected_to_floating_ip
+        type: server_connected_to_floating_ip
       - target: network
         type: cloudify.relationships.connected_to
       - target: subnet
@@ -140,3 +139,28 @@ node_templates:
         type: cloudify.openstack.server_connected_to_keypair
       - target: security_group
         type: cloudify.openstack.server_connected_to_security_group
+
+relationships:
+
+  ###################################################################
+  # a relationship to connect the floating ip to the server after
+  # the has been create, not started. this is to enable the worker
+  # installer to ssh into the machine using the floating ip
+  ###################################################################
+
+  server_connected_to_floating_ip:
+    derived_from: cloudify.relationships.connected_to
+    source_interfaces:
+      cloudify.interfaces.relationship_lifecycle:
+        preconfigure:
+          implementation: openstack.nova_plugin.server.connect_floatingip
+          inputs:
+            fixed_ip:
+              description: >
+                The fixed IP to be associated with the floating IP.
+                If omitted, Openstack will choose which port to associate.
+              type: string
+              default: ''
+        unlink: openstack.nova_plugin.server.disconnect_floatingip
+
+

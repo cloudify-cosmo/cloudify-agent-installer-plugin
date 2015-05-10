@@ -1,0 +1,54 @@
+tosca_definitions_version: cloudify_dsl_1_1
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.2/types.yaml
+    - http://www.getcloudify.org/spec/openstack-plugin/1.2/plugin.yaml
+
+
+plugins:
+
+  plugins_common:
+    source: https://github.com/cloudify-cosmo/cloudify-plugins-common/archive/CFY-2627-small-refactoring.zip
+    executor: central_deployment_agent
+    install_arguments: --upgrade
+  agent:
+    source: https://github.com/cloudify-cosmo/cloudify-agent/archive/CFY-2649-cloudify-agent-impl.zip
+    executor: central_deployment_agent
+  new_agent_insaller:
+    source: https://github.com/cloudify-cosmo/cloudify-agent-installer-plugin/archive/CFY-2628-agent-installer-refactor.zip
+    executor: central_deployment_agent
+    install_arguments: --upgrade
+
+inputs:
+
+  image:
+    description: >
+      Image to be used when launching agent VM's
+
+  flavor:
+    description: >
+      Flavor of the agent VM's
+
+node_types:
+
+  nodes.Server:
+    derived_from: cloudify.openstack.nodes.Server
+
+    # dummy interface to force the installation of the agent installer into
+    # the deployment agent
+    interfaces:
+      dummy:
+        create: new_agent_insaller.tasks.create
+        start: plugins_common.tasks.start
+        stop: agent.tasks.stop
+
+node_templates:
+
+  cloudify_agent:
+    type: nodes.Server
+    properties:
+      image: { get_input: image }
+      flavor: { get_input: flavor }
+      cloudify_agent:
+        source_url: https://github.com/cloudify-cosmo/cloudify-agent/archive/CFY-2649-cloudify-agent-impl.zip
+        requirements: https://raw.githubusercontent.com/cloudify-cosmo/cloudify-agent/CFY-2649-cloudify-agent-impl/dev-requirements.txt
