@@ -106,7 +106,6 @@ node_templates:
   agent_vm:
     type: cloudify.openstack.nodes.Server
     properties:
-      install_agent: false
       image: { get_input: image_id }
       flavor: { get_input: flavor }
       server:

@@ -13,11 +13,17 @@
 #    * See the License for the specific language governing permissions and
 #    * limitations under the License.
 
+from mock import patch
+
 from cloudify.workflows import local
 from cloudify.utils import setup_logger
 
 from system_tests import resources
 from cosmo_tester.framework import testenv
+
+
+import os
+os.environ['HANDLER_CONFIGURATION'] = '/home/elip/dev/system-tests-handlers/lab-openstack-eli-handler.yaml'
 
 
 class AgentInstallerPluginTest(testenv.TestCase):
@@ -26,7 +32,8 @@ class AgentInstallerPluginTest(testenv.TestCase):
     def setUpClass(cls):
         cls.logger = setup_logger('test_tasks')
 
-    def test_agent_installer_plugin(self):
+    @patch('cloudify.workflows.local._validate_node')
+    def test_agent_installer_plugin(self, _):
 
         self.addCleanup(self.cleanup)
 
@@ -54,7 +61,7 @@ class AgentInstallerPluginTest(testenv.TestCase):
             ignored_modules='plugin_installer.tasks',
             inputs=inputs)
 
-        self.local_env.execute('install', task_retries=0)
+        self.local_env.execute('install', task_retries=10)
         self._assert_agent_running()
 
     def _assert_agent_running(self):

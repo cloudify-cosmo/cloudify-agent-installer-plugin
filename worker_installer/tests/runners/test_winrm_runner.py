@@ -15,7 +15,7 @@
 
 import unittest2 as unittest
 
-from windows_agent_installer import winrm_runner
+from worker_installer.runners import winrm_runner
 
 
 ##############################################################################
@@ -35,9 +35,8 @@ class TestValidations(unittest.TestCase):
             'password': 'test_password'
         }
 
-        from windows_agent_installer.winrm_runner import validate
         try:
-            validate(session_config)
+            winrm_runner.validate(session_config)
             self.fail('Expected ValueError for missing host')
         except ValueError as e:
             self.assertEqual('Missing host in session_config', e.message)
@@ -50,9 +49,8 @@ class TestValidations(unittest.TestCase):
             'password': 'test_password'
         }
 
-        from windows_agent_installer.winrm_runner import validate
         try:
-            validate(session_config)
+            winrm_runner.validate(session_config)
             self.fail('Expected ValueError for missing user')
         except ValueError as e:
             self.assertEqual('Missing user in session_config', e.message)
@@ -65,9 +63,8 @@ class TestValidations(unittest.TestCase):
             'user': 'test_user'
         }
 
-        from windows_agent_installer.winrm_runner import validate
         try:
-            validate(session_config)
+            winrm_runner.validate(session_config)
             self.fail('Expected ValueError for missing password')
         except ValueError as e:
             self.assertEqual('Missing password in session_config', e.message)
@@ -77,20 +74,18 @@ class TestDefaults(unittest.TestCase):
 
     def test_defaults(self):
 
-        session_config = {
-            'host': 'test_host',
-            'user': 'test_user',
-            'password': 'test_password'
-        }
+        runner = winrm_runner.WinRMRunner(
+            validate_connection=False,
+            host='test_host',
+            user='test_user',
+            password='test_password')
 
-        from windows_agent_installer.winrm_runner import defaults
-        defaults(session_config)
         self.assertEquals(
-            session_config['protocol'],
+            runner.session_config['protocol'],
             winrm_runner.DEFAULT_WINRM_PROTOCOL)
         self.assertEquals(
-            session_config['uri'],
+            runner.session_config['uri'],
             winrm_runner.DEFAULT_WINRM_URI)
         self.assertEquals(
-            session_config['port'],
+            runner.session_config['port'],
             winrm_runner.DEFAULT_WINRM_PORT)
