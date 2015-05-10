@@ -18,9 +18,10 @@ from functools import wraps
 
 from cloudify import ctx
 from cloudify.state import current_ctx
-
-from worker_installer.fabric_runner import FabricCommandRunner
-from worker_installer import configuration
+from worker_installer.config import configuration
+from worker_installer.runners.fabric_runner import FabricRunner
+from worker_installer.runners.local_runner import LocalRunner
+from worker_installer.runners.winrm_runner import WinRMRunner
 
 
 def init_worker_installer(func):
@@ -34,15 +35,26 @@ def init_worker_installer(func):
         configuration.prepare_connection(cloudify_agent)
 
         # now we can create the runner and attach it to ctx
-        runner = FabricCommandRunner(
-            logger=ctx.logger,
-            host=cloudify_agent.get('ip'),
-            user=cloudify_agent['user'],
-            key=cloudify_agent.get('key'),
-            port=cloudify_agent.get('port'),
-            password=cloudify_agent.get('password'),
-            local=cloudify_agent['local'],
-            fabric_env=cloudify_agent.get('fabric_env'))
+        if cloudify_agent['local']:
+            runner = LocalRunner(logger=ctx.logger)
+        elif cloudify_agent['windows']:
+            runner = WinRMRunner(
+                host=cloudify_agent['ip'],
+                user=cloudify_agent['user'],
+                password=cloudify_agent['password'],
+                port=cloudify_agent.get('port'),
+                protocol=cloudify_agent.get('protocol'),
+                uri=cloudify_agent.get('user'),
+                logger=ctx.logger)
+        else:
+            runner = FabricRunner(
+                logger=ctx.logger,
+                host=cloudify_agent['ip'],
+                user=cloudify_agent['user'],
+                port=cloudify_agent.get('port'),
+                key=cloudify_agent.get('key'),
+                password=cloudify_agent.get('password'),
+                fabric_env=cloudify_agent.get('fabric_env'))
         setattr(current_ctx.get_ctx(), 'runner', runner)
 
         configuration.prepare_agent(cloudify_agent)

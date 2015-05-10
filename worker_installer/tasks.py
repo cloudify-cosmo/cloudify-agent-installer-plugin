@@ -13,6 +13,8 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
+import copy
+
 from cloudify.decorators import operation
 from cloudify import ctx
 
@@ -50,8 +52,8 @@ def install(cloudify_agent, **_):
                 'max_workers'),
             env.CLOUDIFY_DAEMON_MIN_WORKERS: cloudify_agent.get(
                 'min_workers'),
-            env.CLOUDIFY_DAEMON_PROCESS_MANAGEMENT: cloudify_agent.get(
-                'process_management'),
+            env.CLOUDIFY_DAEMON_PROCESS_MANAGEMENT:
+                cloudify_agent['process_management']['name'],
 
             env.CLOUDIFY_DAEMON_EXTRA_ENV: _agent_env_path
         }
@@ -65,14 +67,17 @@ def install(cloudify_agent, **_):
                      'environment: {0}'.format(execution_env))
 
     if 'source_url' in cloudify_agent:
-        download_from_source(cloudify_agent)
+        _download_from_source(cloudify_agent)
     else:
-        download_from_package(cloudify_agent)
+        _download_from_package(cloudify_agent)
 
     ctx.logger.info('Creating Agent...')
     ctx.agent.run('daemon create', execution_env=execution_env)
     ctx.logger.info('Configuring Agent...')
-    ctx.agent.run('daemon configure', execution_env=execution_env)
+
+    custom_options = _create_custom_process_management_options(cloudify_agent)
+    ctx.agent.run('daemon configure {0}'.format(custom_options),
+                  execution_env=execution_env)
     _set_runtime_properties(cloudify_agent)
 
 
@@ -108,11 +113,26 @@ def _set_runtime_properties(cloudify_agent):
     ctx.instance.runtime_properties['cloudify_agent'] = cloudify_agent
 
 
-def download_from_source(cloudify_agent):
+def _create_custom_process_management_options(cloudify_agent):
+    options = []
+    process_management = copy.deepcopy(cloudify_agent['process_management'])
+
+    # remove the name key because it is actually passed separately via an
+    # environment variable
+    process_management.pop('name')
+    for key, value in process_management.iteritems():
+        options.append('--{0}={1}'.format(key, value))
+    return ' '.join(options)
+
+
+def _download_from_source(cloudify_agent):
     requirements = cloudify_agent.get('requirements')
     source_url = cloudify_agent['source_url']
     ctx.logger.info('Installing virtualenv')
-    ctx.runner.sudo('pip install virtualenv')
+    if cloudify_agent['windows']:
+        ctx.runner.run('pip install virtualenv')
+    else:
+        ctx.runner.sudo('pip install virtualenv')
     env_path = '{0}/env'.format(cloudify_agent['agent_dir'])
     ctx.logger.info('Creating virtualenv at {0}'.format(env_path))
     ctx.runner.run('virtualenv {0}'.format(env_path))
@@ -127,14 +147,14 @@ def download_from_source(cloudify_agent):
                    .format(env_path, source_url))
 
 
-def download_from_package(cloudify_agent):
+def _download_from_package(cloudify_agent):
     ctx.logger.info('Downloading Agent package from {0}'
                     .format(cloudify_agent['package_url']))
     package_path = ctx.runner.download(
         url=cloudify_agent['package_url'])
     ctx.logger.info('Extracting Agent package...')
-    ctx.runner.untar(archive=package_path,
-                     destination=cloudify_agent['agent_dir'])
+    ctx.runner.extract(archive=package_path,
+                       destination=cloudify_agent['agent_dir'])
 
     ctx.logger.info('Auto-correcting agent virtualenv')
     ctx.agent.run('configure --relocated-env')

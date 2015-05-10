@@ -197,6 +197,10 @@ def _set_local(_):
 # related to the agent side. (like distro, basedir...)
 ########################################################################
 
+@cloudify_agent_property('process_management')
+def _set_process_management(_):
+    return {'name': 'init.d'}
+
 
 @cloudify_agent_property('distro')
 def _set_distro(_):
@@ -288,11 +292,6 @@ def _set_fabric_env(_):
 # specify them here again. However, for these properties to be configurable
 # from the blueprint, these setters must defined here.
 ########################################################################
-
-
-@cloudify_agent_property('process_management', mandatory=False)
-def _set_process_management(_):
-    pass
 
 
 @cloudify_agent_property('min_workers', mandatory=False)

@@ -13,16 +13,16 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import unittest2 as unittest
 import os
 import tempfile
 import logging
 import platform
 
-from cloudify.utils import setup_logger
+import unittest2 as unittest
 
+from cloudify.utils import setup_logger
 from worker_installer import exceptions
-from worker_installer.fabric_runner import FabricCommandRunner
+from worker_installer.runners.fabric_runner import FabricRunner
 from worker_installer.tests.file_server import FileServer
 from worker_installer import tests
 from worker_installer.tests.file_server import PORT
@@ -31,7 +31,7 @@ from worker_installer.tests.file_server import PORT
 class TestDefaults(unittest.TestCase):
 
     def test_default_port(self):
-        runner = FabricCommandRunner(
+        runner = FabricRunner(
             validate_connection=False,
             user='user',
             host='host',
@@ -45,7 +45,7 @@ class TestValidations(unittest.TestCase):
         self.assertRaisesRegexp(
             exceptions.WorkerInstallerConfigurationError,
             'Missing host',
-            FabricCommandRunner,
+            FabricRunner,
             validate_connection=False,
             user='user',
             password='password')
@@ -54,7 +54,7 @@ class TestValidations(unittest.TestCase):
         self.assertRaisesRegexp(
             exceptions.WorkerInstallerConfigurationError,
             'Missing user',
-            FabricCommandRunner,
+            FabricRunner,
             validate_connection=False,
             host='host',
             password='password')
@@ -63,7 +63,7 @@ class TestValidations(unittest.TestCase):
         self.assertRaisesRegexp(
             exceptions.WorkerInstallerConfigurationError,
             'Cannot specify both key and password',
-            FabricCommandRunner,
+            FabricRunner,
             validate_connection=False,
             host='host',
             user='user',
@@ -74,7 +74,7 @@ class TestValidations(unittest.TestCase):
         self.assertRaisesRegexp(
             exceptions.WorkerInstallerConfigurationError,
             'Must specify either key or password',
-            FabricCommandRunner,
+            FabricRunner,
             validate_connection=False,
             host='host',
             user='password')
@@ -97,7 +97,7 @@ class LocalFabricRunnerTest(unittest.TestCase):
         super(LocalFabricRunnerTest, cls).setUpClass()
         cls.logger = setup_logger(cls.__name__)
         cls.logger.setLevel(logging.DEBUG)
-        cls.runner = FabricCommandRunner(
+        cls.runner = FabricRunner(
             logger=cls.logger,
             validate_connection=False,
             local=True)

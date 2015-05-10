@@ -19,10 +19,8 @@ import logging
 
 from cloudify.workflows import local
 from cloudify.utils import setup_logger
-
 from cosmo_tester.framework import testenv
-
-from worker_installer.fabric_runner import FabricCommandRunner
+from worker_installer.runners.fabric_runner import FabricRunner
 from system_tests import resources
 
 
@@ -35,7 +33,7 @@ class RemoteFabricRunnerTest(testenv.TestCase):
         super(RemoteFabricRunnerTest, cls).setUpClass()
         cls.logger = setup_logger(cls.__name__)
         cls.logger.setLevel(logging.DEBUG)
-        cls.runner = FabricCommandRunner(
+        cls.runner = FabricRunner(
             logger=cls.logger,
             validate_connection=False,
             local=True)

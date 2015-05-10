@@ -27,7 +27,6 @@ from fabric.context_managers import hide
 from fabric.context_managers import shell_env
 from fabric.contrib.files import exists
 
-from cloudify.utils import LocalCommandRunner
 from cloudify.utils import CommandExecutionResponse
 from cloudify.exceptions import CommandExecutionException
 from cloudify.exceptions import CommandExecutionError
@@ -44,17 +43,16 @@ COMMON_ENV = {
 }
 
 
-class FabricCommandRunner(object):
+class FabricRunner(object):
 
     def __init__(self,
                  logger=None,
                  host=None,
                  user=None,
                  key=None,
-                 port=None,
+                 port=DEFAULT_REMOTE_EXECUTION_PORT,
                  password=None,
                  validate_connection=True,
-                 local=False,
                  fabric_env=None):
 
         # logger
@@ -63,27 +61,22 @@ class FabricCommandRunner(object):
         # silence paramiko
         logging.getLogger('paramiko.transport').setLevel(logging.WARNING)
 
-        if local:
-            self.local = True
-            self.local_runner = LocalCommandRunner(logger)
-        else:
-            self.local = False
-            # connection details
-            self.port = port or DEFAULT_REMOTE_EXECUTION_PORT
-            self.password = password
-            self.user = user
-            self.host = host
-            self.key = key
+        # connection details
+        self.port = port
+        self.password = password
+        self.user = user
+        self.host = host
+        self.key = key
 
-            # fabric environment
-            self.env = self._set_env()
-            self.env.update(fabric_env or {})
+        # fabric environment
+        self.env = self._set_env()
+        self.env.update(fabric_env or {})
 
-            self._validate_ssh_config()
-            if validate_connection:
-                self.logger.debug('Validating connection...')
-                self.ping()
-                self.logger.debug('Connected successfully')
+        self._validate_ssh_config()
+        if validate_connection:
+            self.logger.debug('Validating connection...')
+            self.ping()
+            self.logger.debug('Connected successfully')
 
     def _validate_ssh_config(self):
         if not self.host:
@@ -140,14 +133,6 @@ class FabricCommandRunner(object):
 
         if execution_env is None:
             execution_env = {}
-
-        if self.local:
-            return self.local_runner.run(
-                command=command,
-                quiet=quiet,
-                execution_env=execution_env,
-                **attributes
-            )
 
         with shell_env(**execution_env):
 
@@ -209,8 +194,6 @@ class FabricCommandRunner(object):
         :raise: cloudify.exceptions.LocalCommandExecutionException
         """
 
-        if self.local:
-            return self.local_runner.sudo(command, **attributes)
         return self.run('sudo {0}'.format(command),
                         quiet=quiet, fabric_env=fabric_env, **attributes)
 
@@ -275,9 +258,6 @@ class FabricCommandRunner(object):
         :rtype boolean
         """
 
-        if self.local:
-            return os.path.exists(path)
-
         # apply custom fabric env given in the invocation
         invocation_env = {}
         invocation_env.update(self.env)
@@ -318,26 +298,21 @@ class FabricCommandRunner(object):
             tempdir = self.mkdtemp()
             dst = os.path.join(tempdir, basename)
 
-        if self.local:
-            self.logger.debug('Copying {0} to {1}'.format(src, dst))
-            shutil.copy(src=src, dst=dst)
-        else:
+        # apply custom fabric env given in the invocation
+        invocation_env = {}
+        invocation_env.update(self.env)
+        invocation_env.update(fabric_env or {})
 
-            # apply custom fabric env given in the invocation
-            invocation_env = {}
-            invocation_env.update(self.env)
-            invocation_env.update(fabric_env or {})
-
-            with settings(**invocation_env):
-                with hide('warnings'):
-                    r = fabric_api.put(src, dst, use_sudo=sudo, **attributes)
-                    if not r.succeeded:
-                        raise FabricCommandExecutionException(
-                            command='fabric_api.put',
-                            error='Failed uploading {0} to {1}'
-                            .format(src, dst),
-                            code=-1
-                        )
+        with settings(**invocation_env):
+            with hide('warnings'):
+                r = fabric_api.put(src, dst, use_sudo=sudo, **attributes)
+                if not r.succeeded:
+                    raise FabricCommandExecutionException(
+                        command='fabric_api.put',
+                        error='Failed uploading {0} to {1}'
+                        .format(src, dst),
+                        code=-1
+                    )
         return dst
 
     def get_file(self, src, dst=None, fabric_env=None):
@@ -365,29 +340,25 @@ class FabricCommandRunner(object):
             tempdir = tempfile.mkdtemp()
             dst = os.path.join(tempdir, basename)
 
-        if self.local:
-            shutil.copy(src=src, dst=dst)
-        else:
+        # apply custom fabric env given in the invocation
+        invocation_env = {}
+        invocation_env.update(self.env)
+        invocation_env.update(fabric_env or {})
 
-            # apply custom fabric env given in the invocation
-            invocation_env = {}
-            invocation_env.update(self.env)
-            invocation_env.update(fabric_env or {})
-
-            with settings(invocation_env):
-                with hide('running', 'warnings'):
-                    response = fabric_api.get(src, dst)
-                if not response:
-                    raise FabricCommandExecutionException(
-                        command='fabric_api.get',
-                        error='Failed downloading {0} to {1}'
-                        .format(src, dst),
-                        code=-1
-                    )
+        with settings(invocation_env):
+            with hide('running', 'warnings'):
+                response = fabric_api.get(src, dst)
+            if not response:
+                raise FabricCommandExecutionException(
+                    command='fabric_api.get',
+                    error='Failed downloading {0} to {1}'
+                    .format(src, dst),
+                    code=-1
+                )
         return dst
 
-    def untar(self, archive, destination, strip=1,
-              fabric_env=None, **attributes):
+    def extract(self, archive, destination, strip=1,
+                fabric_env=None, **attributes):
 
         """
         Un-tars an archive. internally this will use the 'tar' command line,
@@ -628,8 +599,6 @@ class FabricCommandRunner(object):
 
         """
 
-        if self.local:
-            return platform.dist()
         response = self.python(
             imports_line='import platform, json',
             command='json.dumps(platform.dist())',
@@ -664,7 +633,6 @@ class FabricCommandExecutionException(CommandExecutionException):
     Indicates the command was executed but a failure occurred.
 
     """
-
     pass
 
 
@@ -673,5 +641,4 @@ class FabricCommandExecutionResponse(CommandExecutionResponse):
     """
     Wrapper for indicating the command was originated with fabric api.
     """
-
     pass
