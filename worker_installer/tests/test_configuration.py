@@ -190,7 +190,8 @@ class TestConfiguration(unittest.TestCase):
             'key': 'key',
             'port': 22,
             'ip': '127.0.0.1',
-            'local': False
+            'local': False,
+            'windows': False
         }
         self.assertEqual(expected, cloudify_agent)
 
@@ -213,7 +214,8 @@ class TestConfiguration(unittest.TestCase):
             'key': 'key',
             'port': 22,
             'ip': '127.0.0.1',
-            'local': False
+            'local': False,
+            'windows': False
         }
         self.assertEqual(expected, cloudify_agent)
 
@@ -238,6 +240,7 @@ class TestConfiguration(unittest.TestCase):
         expected = {
             'agent_dir': 'basedir/test_node',
             'distro': 'distro',
+            'process_management': {'name': 'init.d'},
             'distro_codename': 'distro_codename',
             'basedir': 'basedir',
             'name': 'test_node',

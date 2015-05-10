@@ -39,7 +39,7 @@ class LocalRunner(utils.LocalCommandRunner):
 
     def download(self, url, output_path=None):
         if output_path is None:
-            output_path = tempfile.mkstemp()
+            output_path = tempfile.mkstemp()[1]
 
         try:
             self.logger.info('Locating wget on the host machine')

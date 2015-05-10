@@ -35,8 +35,7 @@ class RemoteFabricRunnerTest(testenv.TestCase):
         cls.logger.setLevel(logging.DEBUG)
         cls.runner = FabricRunner(
             logger=cls.logger,
-            validate_connection=False,
-            local=True)
+            validate_connection=False)
 
     def setUp(self):
 
@@ -93,7 +92,7 @@ class RemoteFabricRunnerTest(testenv.TestCase):
         self._test_run_command()
         self._test_run_command_with_env()
         self._test_run_script()
-        self._test_untar()
+        self._test_extract()
 
     def _test_ping(self):
         self.runner.ping()
@@ -152,12 +151,12 @@ class RemoteFabricRunnerTest(testenv.TestCase):
         self.logger.info('Downloaded index to path: {0}'.format(output_path))
         self.assertTrue(self.runner.exists(path=output_path))
 
-    def _test_untar(self):
+    def _test_extract(self):
         temp_folder = self.runner.mkdtemp()
         output_path = self.runner.download(
             url='https://github.com/cloudify-cosmo/'
                 'cloudify-agent-installer-plugin/archive/master.tar.gz')
-        self.runner.untar(archive=output_path, destination=temp_folder)
+        self.runner.extract(archive=output_path, destination=temp_folder)
         self.assertTrue(self.runner.exists(
             os.path.join(temp_folder, 'worker_installer'))
         )
