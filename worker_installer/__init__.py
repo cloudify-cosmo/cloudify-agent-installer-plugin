@@ -66,7 +66,8 @@ def init_worker_installer(func):
         try:
             return func(*args, **kwargs)
         finally:
-            runner.close()
+            if isinstance(runner, FabricRunner):
+                runner.close()
 
     return wrapper
 

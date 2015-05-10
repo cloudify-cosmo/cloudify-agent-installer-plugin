@@ -103,6 +103,7 @@ def prepare_connection(cloudify_agent):
     _set_port(cloudify_agent)
     _set_ip(cloudify_agent)
     _set_local(cloudify_agent)
+    _set_windows(cloudify_agent)
 
 
 def prepare_agent(cloudify_agent):
@@ -189,6 +190,11 @@ def _set_password(_):
 @cloudify_agent_property('local')
 def _set_local(_):
     return ctx.type == context.DEPLOYMENT
+
+
+@cloudify_agent_property('windows')
+def _set_windows(_):
+    return False
 
 
 ########################################################################

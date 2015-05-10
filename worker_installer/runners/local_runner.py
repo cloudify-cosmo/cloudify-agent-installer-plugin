@@ -14,6 +14,7 @@
 #  * limitations under the License.
 
 import tempfile
+import platform
 import os
 import shutil
 
@@ -59,5 +60,9 @@ class LocalRunner(utils.LocalCommandRunner):
     @staticmethod
     def put_file(src, dst=None):
         if dst is None:
-            dst = tempfile.mkstemp()
+            dst = tempfile.mkstemp()[1]
         shutil.copy(src, dst)
+
+    @staticmethod
+    def machine_distribution():
+        return platform.dist()
