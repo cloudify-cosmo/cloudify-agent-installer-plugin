@@ -49,6 +49,8 @@ node_templates:
     properties:
       image: { get_input: image }
       flavor: { get_input: flavor }
+      server:
+        userdata: sudo apt-get update && sudo apt-get install python-dev
       cloudify_agent:
         source_url: https://github.com/cloudify-cosmo/cloudify-agent/archive/CFY-2649-cloudify-agent-impl.zip
         requirements: https://raw.githubusercontent.com/cloudify-cosmo/cloudify-agent/CFY-2649-cloudify-agent-impl/dev-requirements.txt
