@@ -22,10 +22,6 @@ from system_tests import resources
 from cosmo_tester.framework import testenv
 
 
-import os
-os.environ['HANDLER_CONFIGURATION'] = '/home/elip/dev/system-tests-handlers/lab-openstack-eli-handler.yaml'
-
-
 class AgentInstallerPluginTest(testenv.TestCase):
 
     @classmethod

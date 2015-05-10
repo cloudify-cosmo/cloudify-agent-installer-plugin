@@ -26,7 +26,6 @@ from fabric.context_managers import shell_env
 from fabric.contrib.files import exists
 
 from cloudify.utils import CommandExecutionResponse
-from cloudify.exceptions import NonRecoverableError
 from cloudify.exceptions import CommandExecutionException
 from cloudify.exceptions import CommandExecutionError
 from cloudify.utils import setup_logger
