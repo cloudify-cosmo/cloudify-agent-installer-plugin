@@ -126,13 +126,25 @@ def _create_custom_process_management_options(cloudify_agent):
 
 
 def _download_from_source(cloudify_agent):
+
+    get_pip_url = 'https://bootstrap.pypa.io/get-pip.py'
+
     requirements = cloudify_agent.get('requirements')
     source_url = cloudify_agent['source_url']
-    ctx.logger.info('Installing virtualenv')
+
+    ctx.logger.info('Downloading get-pip.py from {0}'.format(get_pip_url))
+    get_pip = ctx.runner.download(get_pip_url)
+
     if cloudify_agent['windows']:
-        ctx.runner.run('pip install virtualenv')
+        elevated = ctx.runner.run
     else:
-        ctx.runner.sudo('pip install virtualenv')
+        elevated = ctx.runner.sudo
+
+    ctx.logger.info('Installing pip...')
+    elevated('python {0}'.format(get_pip))
+    ctx.logger.info('Installing virtualenv...')
+    elevated('pip install virtualenv')
+
     env_path = '{0}/env'.format(cloudify_agent['agent_dir'])
     ctx.logger.info('Creating virtualenv at {0}'.format(env_path))
     ctx.runner.run('virtualenv {0}'.format(env_path))
